@@ -6,16 +6,22 @@
  * SCRIPTC_TARGET_CPU=<level> builds for that `--target-cpu` level. */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { globSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { globSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
-import ts5 from "typescript";
 import { compile } from "@scriptc/compiler";
 import { corpusSelect, shardSuffix } from "./shard.js";
 import { libnodePack, requiresLibnode } from "./libnode.js";
-import { tscJsxOracleEntry, wantsTscJsx } from "./jsx-oracle.js";
+import {
+  expectedExitCode,
+  oracleInvocation,
+  programEnv,
+  programInputs,
+  requiresIcu,
+  wantsPidNormalized,
+  withoutWarningPid,
+} from "./node-oracle.js";
 
 type TargetCpu = NonNullable<NonNullable<Parameters<typeof compile>[1]>["targetCpu"]>;
 
@@ -55,44 +61,6 @@ interface RunResult {
   stdout: Buffer;
   stderr: Buffer;
   exitCode: number;
-}
-
-/** First TWO lines — a program can combine directives, one per line
- * (differential.test.ts's directiveHead). */
-function directiveHead(file: string): string[] {
-  return readFileSync(file, "utf8").split("\n", 2);
-}
-
-function expectedExitCode(file: string): number {
-  for (const line of directiveHead(file)) {
-    const m = /^\/\/ @exit:\s*(\d+)\s*$/.exec(line);
-    if (m) return Number(m[1]);
-  }
-  return 0;
-}
-
-/** `// @env: NAME=VALUE[,NAME=VALUE]` (differential.test.ts's twin): the
- * variables are set for BOTH sides, so a program can pin the ambient state
- * that decides Intl output (TZ, LC_ALL/LANG) and the oracle and the binary
- * read the same one. */
-function programEnv(file: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const line of directiveHead(file)) {
-    const m = /^\/\/ @env:\s*(.+?)\s*$/.exec(line);
-    if (m === null) continue;
-    for (const pair of m[1]!.split(",")) {
-      const eq = pair.indexOf("=");
-      if (eq > 0) env[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
-    }
-  }
-  return env;
-}
-
-/** `// @requires-icu` (differential.test.ts's twin): the program's Intl
- * forms are answered by ICU, which only the linux-x64 runtime pack carries
- * in this slice; other lanes skip instead of hitting the refusal. */
-function requiresIcu(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @requires-icu\s*$/.test(l));
 }
 
 function icuAvailable(): boolean {
@@ -148,83 +116,10 @@ function comparableStderr(stderr: Buffer): Buffer {
   return Buffer.from(kept.join("\n"), "utf8");
 }
 
-const comptimeShim = pathToFileURL(join(import.meta.dirname, "comptime-shim.mjs")).href;
-
-/** differential.test.ts's twin: the Node oracle runs with
- * --experimental-transform-types for corpus programs using non-erasable
- * syntax — the `// @transform-types` directive (namespaces) OR any enum
- * declaration (strip-only mode refuses to parse enums, no directive
- * needed; a pure function of the program bytes). */
-function wantsTransformTypes(file: string): boolean {
-  if (directiveHead(file).some((l) => /^\/\/ @transform-types\s*$/.test(l))) return true;
-  return programInputs(file).some((f) => /\benum\s+[A-Za-z_$]/.test(readFileSync(f, "utf8")));
-}
-
-/** `// @tsc-decorators` (differential.test.ts's twin): decorators are the
- * one supported construct Node cannot execute at all, so the oracle runs
- * tsc's deterministic ES2022 downlevel materialized under the test cache. */
-function wantsTscDecorators(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @tsc-decorators\s*$/.test(l));
-}
-
-function nodeOracleFile(file: string): string {
-  if (wantsTscJsx(directiveHead(file))) return tscJsxOracleEntry(file, cacheDir);
-  if (!wantsTscDecorators(file)) return file;
-  const src = readFileSync(file, "utf8");
-  const out = ts5.transpileModule(src, {
-    compilerOptions: { target: ts5.ScriptTarget.ES2022, module: ts5.ModuleKind.ESNext },
-    fileName: file,
-  }).outputText;
-  const key = createHash("sha256")
-    .update(ts5.version)
-    .update("\0")
-    .update(src)
-    .digest("hex")
-    .slice(0, 16);
-  const path = join(cacheDir, `dec-oracle-${key}.mjs`);
-  mkdirSync(cacheDir, { recursive: true });
-  // Atomic publish: concurrent suites (the other flavor's full run, or
-  // another lane over the same program) write this same content-keyed
-  // path; rename keeps readers from ever seeing a truncated oracle.
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, out);
-  renameSync(tmp, path);
-  return path;
-}
-
 /** `// @normalize-pid` (differential.test.ts): Node's process warnings
  * compare with the pid replaced on both sides. */
 function pidFree(file: string, stderr: Buffer): Buffer {
-  if (!directiveHead(file).some((l) => /^\/\/ @normalize-pid\s*$/.test(l))) return stderr;
-  return Buffer.from(stderr.toString("utf8").replace(/^\(node:\d+\) /gm, "(node:PID) "), "utf8");
-}
-
-function wantsNoDeprecation(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @no-deprecation\s*$/.test(l));
-}
-
-function nodeOracleArgs(file: string): string[] {
-  const transform = wantsTransformTypes(file)
-    ? ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"]
-    : [];
-  const nodep = wantsNoDeprecation(file) ? ["--no-deprecation"] : [];
-  // differential.test.ts's @disallow-code-generation directive.
-  const codegen = directiveHead(file).some((l) => /^\/\/ @disallow-code-generation\s*$/.test(l))
-    ? ["--disallow-code-generation-from-strings"]
-    : [];
-  // --import makes Node load even a CJS entry through its ESM loader,
-  // changing an entry throw's uncaughtException origin to unhandledRejection.
-  const shims = directiveHead(file).includes("// @no-node-shims") ? [] : ["--import", comptimeShim];
-  return [...transform, ...nodep, ...codegen, ...shims, nodeOracleFile(file)];
-}
-
-function programInputs(file: string): string[] {
-  if (!/\/main\.(ts|js|mjs|cjs)$/.test(file)) return [file];
-  return [
-    ...[...ENTRY_EXTS, "tsx", "jsx"].flatMap((ext) => globSync(join(file, `../**/*.${ext}`))),
-    ...globSync(join(file, "../**/tsconfig.json")),
-    ...globSync(join(file, "../**/package.json")),
-  ].sort();
+  return wantsPidNormalized(file) ? withoutWarningPid(stderr) : stderr;
 }
 
 async function build(file: string, optimization: "release" | "dev") {
@@ -256,12 +151,8 @@ describe(`llvm differential corpus (${files.length} programs, ${optimizationMode
       // Programs that call into Node need a libnode pack (libnode.ts).
       if (requiresLibnode(file) && libnodePack() === null) skip();
       if (requiresIcu(file) && !icuAvailable()) skip();
-      const oracle = await runBinary(
-        process.execPath,
-        nodeOracleArgs(file),
-        undefined,
-        programEnv(file),
-      );
+      const { command, args } = oracleInvocation(file, { command: process.execPath });
+      const oracle = await runBinary(command, args, undefined, programEnv(file));
       const expectedExit = expectedExitCode(file);
       expect(oracle.exitCode).toBe(expectedExit);
       for (const optimization of optimizationModes) {

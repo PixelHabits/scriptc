@@ -1,16 +1,20 @@
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, globSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, globSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import ts5 from "typescript";
 import { compile } from "@scriptc/compiler";
 import { npmCases } from "./npm-cases.js";
 import { normalizeNodeTestOutput } from "./node-test-normalize.js";
 import { eventLoopCases, type StdinScript } from "./event-loop-cases.js";
 import { requiresLibnode } from "./libnode.js";
-import { tscJsxOracleEntry, wantsTscJsx } from "./jsx-oracle.js";
+import {
+  expectedExitCode,
+  oracleInvocation,
+  nodeOracleProgram,
+  programInputs,
+} from "./node-oracle.js";
 
 const execFileAsync = promisify(execFile);
 const enabled = process.env["SCRIPTC_LINUX"] === "1";
@@ -28,58 +32,6 @@ const muslTarget = target.includes("linux-musl");
 // unreachable; a bind mount makes it just work here).
 const mountPoint = repoRoot;
 const containerName = `scr-linux-lane-${process.pid}`;
-
-// The lane compiles the whole corpus natively and compares it with the
-// Linux Node oracle. Any future target capability refusal is visible below.
-function directiveHead(file: string): string[] {
-  return readFileSync(file, "utf8").split("\n", 2);
-}
-
-/** `// @transform-types` (differential.test.ts's directive): the Node
- * oracle needs --experimental-transform-types for non-erasable syntax
- * (namespaces). Enum-declaring programs ride the same flag without a
- * directive, exactly like the macOS lane (the flags stay a pure function
- * of the program bytes). */
-function wantsTransformTypes(file: string): boolean {
-  if (directiveHead(file).some((l) => /^\/\/ @transform-types\s*$/.test(l))) return true;
-  return programInputs(file).some((f) => /\benum\s+[A-Za-z_$]/.test(readFileSync(f, "utf8")));
-}
-
-/** `// @tsc-decorators` (differential.test.ts's directive): Node cannot
- * execute decorators at all, so the oracle runs tsc's ES2022 downlevel of
- * the program — materialized under the test cache, which lives inside the
- * repo mount, so the container reads it like any other corpus file. */
-function wantsTscDecorators(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @tsc-decorators\s*$/.test(l));
-}
-
-/** The file the Node oracle executes: the program itself, or (decorator
- * programs) its deterministic ES2022 downlevel — differential.test.ts's
- * nodeOracleFile, with the identical transform and cache key. */
-function nodeOracleFile(file: string): string {
-  if (wantsTscJsx(directiveHead(file))) return tscJsxOracleEntry(file, cacheDir);
-  if (!wantsTscDecorators(file)) return file;
-  const src = readFileSync(file, "utf8");
-  const out = ts5.transpileModule(src, {
-    compilerOptions: { target: ts5.ScriptTarget.ES2022, module: ts5.ModuleKind.ESNext },
-    fileName: file,
-  }).outputText;
-  const key = createHash("sha256")
-    .update(ts5.version)
-    .update("\0")
-    .update(src)
-    .digest("hex")
-    .slice(0, 16);
-  const path = join(cacheDir, `dec-oracle-${key}.mjs`);
-  mkdirSync(cacheDir, { recursive: true });
-  // Atomic publish: concurrent suites (the other flavor's full run, or
-  // another lane over the same program) write this same content-keyed
-  // path; rename keeps readers from ever seeing a truncated oracle.
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, out);
-  renameSync(tmp, path);
-  return path;
-}
 
 /* Programs whose expected output depends on spawn EXEC-FAILURE errno
  * reporting — child_process must see ENOENT through posix_spawn(p)'s
@@ -145,14 +97,6 @@ interface RunResult {
   exitCode: number;
 }
 
-function expectedExitCode(file: string): number {
-  for (const line of directiveHead(file)) {
-    const m = /^\/\/ @exit:\s*(\d+)\s*$/.exec(line);
-    if (m) return Number(m[1]);
-  }
-  return 0;
-}
-
 /** Runs a command INSIDE the lane container via docker exec, stdin ended
  * immediately (differential.test.ts's contract: fd-0 readers see an empty
  * closed stream), cwd = the mounted repo root, the harness env marker set.
@@ -197,31 +141,15 @@ function inContainer(hostPath: string): string {
 }
 
 async function runLinuxNode(file: string): Promise<RunResult> {
-  return runInContainer([
-    "node",
-    ...(wantsTransformTypes(file)
-      ? ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"]
-      : []),
-    ...(directiveHead(file).some((l) => /^\/\/ @no-deprecation\s*$/.test(l))
-      ? ["--no-deprecation"]
-      : []),
-    ...(directiveHead(file).some((l) => /^\/\/ @disallow-code-generation\s*$/.test(l))
-      ? ["--disallow-code-generation-from-strings"]
-      : []),
-    ...(directiveHead(file).includes("// @no-node-shims")
-      ? []
-      : ["--import", inContainer(join(repoRoot, "tests/harness/comptime-shim.mjs")), "--import"]),
-    inContainer(nodeOracleFile(file)),
-  ]);
-}
-
-function programInputs(file: string): string[] {
-  if (!/\/main\.(ts|js|mjs|cjs)$/.test(file)) return [file];
-  return [
-    ...[...ENTRY_EXTS, "tsx", "jsx"].flatMap((ext) => globSync(join(file, `../**/*.${ext}`))),
-    ...globSync(join(file, "../**/tsconfig.json")),
-    ...globSync(join(file, "../**/package.json")),
-  ].sort();
+  const { command, args } = oracleInvocation(file, {
+    entry: inContainer(nodeOracleProgram(file).entry),
+    preload: [
+      "--import",
+      inContainer(join(repoRoot, "tests/harness/comptime-shim.mjs")),
+      "--import",
+    ],
+  });
+  return runInContainer([command, ...args]);
 }
 
 async function crossCompileAndRun(file: string): Promise<RunResult> {

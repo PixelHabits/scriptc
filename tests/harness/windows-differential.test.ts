@@ -37,23 +37,19 @@
  * windows-dev). */
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  existsSync,
-  globSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmdirSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, globSync, mkdirSync, readFileSync, rmdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import ts5 from "typescript";
 import { compile } from "@scriptc/compiler";
 import { requiresLibnode } from "./libnode.js";
-import { tscJsxOracleEntry, wantsTscJsx } from "./jsx-oracle.js";
+import {
+  expectedExitCode,
+  oracleInvocation,
+  nodeOracleProgram,
+  programInputs,
+} from "./node-oracle.js";
 
 const execFileAsync = promisify(execFile);
 const enabled = process.env["SCRIPTC_WIN"] === "1";
@@ -204,61 +200,10 @@ const WINDOWS_SKIPS: Record<string, string> = {
   "1540-os-userinfo.ts": "userInfo().shell null on Windows Node (typed string here)",
 };
 
-// The lane compiles the whole corpus natively for Windows. Target
-// capability refusals and WINDOWS_SKIPS remain visible below.
-function directiveHead(file: string): string[] {
-  return readFileSync(file, "utf8").split("\n", 2);
-}
-
-/** `// @transform-types` (differential.test.ts's directive): the Node
- * oracle needs --experimental-transform-types for non-erasable syntax
- * (namespaces). Enum-declaring programs ride the same flag without a
- * directive — differential.test.ts's exact rule, mirrored so the two
- * lanes hand the oracle identical argv. */
-function wantsTransformTypes(file: string): boolean {
-  if (directiveHead(file).some((l) => /^\/\/ @transform-types\s*$/.test(l))) return true;
-  return programInputs(file).some((f) => /\benum\s+[A-Za-z_$]/.test(readFileSync(f, "utf8")));
-}
-
-/** `// @tsc-decorators` (differential.test.ts's directive): Node cannot
- * execute decorators at all (V8 has not shipped the proposal), so the
- * oracle runs tsc's deterministic ES2022 downlevel of the program —
- * materialized beside the binary cache and SHIPPED to the box in the
- * entry's place. Single-file programs only, like the macOS lane. */
-function wantsTscDecorators(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @tsc-decorators\s*$/.test(l));
-}
-
 /** The downleveled oracle entry's box-side name: unique per program, and
  * .mjs so the box's module detection cannot re-guess. */
 function decOracleName(file: string): string {
   return `${laneName(file)}.dec-oracle.mjs`;
-}
-
-/** Materializes the decorator downlevel under the test cache (a pure
- * function of the program bytes and the typescript version) and answers
- * the local path to ship. */
-function decOraclePath(file: string): string {
-  const src = readFileSync(file, "utf8");
-  const out = ts5.transpileModule(src, {
-    compilerOptions: { target: ts5.ScriptTarget.ES2022, module: ts5.ModuleKind.ESNext },
-    fileName: file,
-  }).outputText;
-  const key = createHash("sha256")
-    .update(ts5.version)
-    .update("\0")
-    .update(src)
-    .digest("hex")
-    .slice(0, 16);
-  const dir = join(cacheDir, "win-dec-oracle", key);
-  mkdirSync(dir, { recursive: true });
-  const path = join(dir, decOracleName(file));
-  // Atomic publish: a concurrent run writes this same content-keyed path;
-  // rename keeps readers from ever seeing a truncated oracle.
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, out);
-  renameSync(tmp, path);
-  return path;
 }
 
 const filter = process.env["SCRIPTC_WIN_FILTER"];
@@ -287,14 +232,6 @@ interface RunResult {
   stdout: Buffer;
   stderr: Buffer;
   exitCode: number;
-}
-
-function expectedExitCode(file: string): number {
-  for (const line of directiveHead(file)) {
-    const m = /^\/\/ @exit:\s*(\d+)\s*$/.exec(line);
-    if (m) return Number(m[1]);
-  }
-  return 0;
 }
 
 /** The program's lane name: the corpus file's own name, or the directory's
@@ -346,40 +283,15 @@ async function scpToLane(paths: string[]): Promise<void> {
   await execFileAsync("scp", ["-q", "-r", ...sshOpts, ...paths, `${host}:${laneDirScp}/`]);
 }
 
-/** The box's Node over the program shipped beside the binary — the same
- * shims the macOS oracle uses, shipped once in beforeAll. Windows Node
- * type-strips .ts natively (same pinned version as the macOS lanes). */
 async function runWindowsNode(file: string): Promise<RunResult> {
-  const name = laneName(file);
-  const entry = wantsTscJsx(directiveHead(file))
-    ? `${basename(dirname(tscJsxOracleEntry(file, cacheDir)))}\\main.js`
-    : wantsTscDecorators(file)
-      ? decOracleName(file)
-      : name === basename(file)
-        ? name
-        : `${name}\\${basename(file)}`;
-  const transform = wantsTransformTypes(file)
-    ? "--experimental-transform-types --disable-warning=ExperimentalWarning "
-    : "";
-  const nodep = directiveHead(file).some((l) => /^\/\/ @no-deprecation\s*$/.test(l))
-    ? "--no-deprecation "
-    : "";
-  const codegen = directiveHead(file).some((l) => /^\/\/ @disallow-code-generation\s*$/.test(l))
-    ? "--disallow-code-generation-from-strings "
-    : "";
-  const shims = directiveHead(file).includes("// @no-node-shims")
-    ? ""
-    : "--import ./comptime-shim.mjs ";
-  return runOnBox(`node ${transform}${nodep}${codegen}${shims}${entry}`);
-}
-
-function programInputs(file: string): string[] {
-  if (!/\/main\.(ts|js|mjs|cjs)$/.test(file)) return [file];
-  return [
-    ...[...ENTRY_EXTS, "tsx", "jsx"].flatMap((ext) => globSync(join(file, `../**/*.${ext}`))),
-    ...globSync(join(file, "../**/tsconfig.json")),
-    ...globSync(join(file, "../**/package.json")),
-  ].sort();
+  const program = nodeOracleProgram(file, { decoratorName: decOracleName(file) });
+  const name = basename(program.root);
+  const entry = program.entry === program.root ? name : `${name}\\${basename(program.entry)}`;
+  const { command, args } = oracleInvocation(file, {
+    entry,
+    preload: ["--import", "./comptime-shim.mjs"],
+  });
+  return runOnBox([command, ...args].join(" "));
 }
 
 async function crossCompile(file: string): Promise<string> {
@@ -411,13 +323,8 @@ async function crossCompile(file: string): Promise<string> {
 async function shipProgram(file: string): Promise<void> {
   const binary = await crossCompile(file);
   const programRoot = /\/main\.(ts|js|mjs|cjs)$/.test(file) ? join(file, "..") : file;
-  // Decorator programs additionally ship the tsc downlevel the oracle
-  // executes (the compiler still eats the real source above).
-  const oracleExtra = wantsTscJsx(directiveHead(file))
-    ? [dirname(tscJsxOracleEntry(file, cacheDir))]
-    : wantsTscDecorators(file)
-      ? [decOraclePath(file)]
-      : [];
+  const program = nodeOracleProgram(file, { decoratorName: decOracleName(file) });
+  const oracleExtra = program.entry === file ? [] : [program.root];
   await scpToLane([binary, programRoot, ...oracleExtra]);
 }
 

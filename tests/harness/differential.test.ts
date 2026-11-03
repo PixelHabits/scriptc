@@ -16,15 +16,25 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { globSync, mkdirSync, readFileSync, renameSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 import ts5 from "typescript";
 import { compile } from "@scriptc/compiler";
 import { corpusSelect, shardSuffix } from "./shard.js";
 import { oracleEnvKey } from "./oracle-env.js";
+import {
+  comptimeShim,
+  directiveHead,
+  expectedExitCode,
+  oracleInvocation,
+  programEnv,
+  programInputs,
+  requiresIcu,
+  wantsPidNormalized,
+  withoutWarningPid,
+} from "./node-oracle.js";
 import { libnodePack, requiresLibnode } from "./libnode.js";
-import { tscJsxOracleEntry, wantsTscJsx } from "./jsx-oracle.js";
 
 const execFileAsync = promisify(execFile);
 const repoRoot = join(import.meta.dirname, "../..");
@@ -64,25 +74,6 @@ interface RunResult {
   exitCode: number;
 }
 
-/** The directive head of a corpus program: its first TWO lines, so a
- * program can combine directives (`// @exit: 1` + `// @transform-types`),
- * one per line. */
-function directiveHead(file: string): string[] {
-  return readFileSync(file, "utf8").split("\n", 2);
-}
-
-/** Expected exit code of a corpus program: 0 unless the entry file's head
- * says otherwise (`// @exit: 1` — uncaught-throw programs exit 1 under
- * Node and under scriptc; stderr is not compared there — the report format
- * is a documented divergence — stdout still is). */
-function expectedExitCode(file: string): number {
-  for (const line of directiveHead(file)) {
-    const m = /^\/\/ @exit:\s*(\d+)\s*$/.exec(line);
-    if (m) return Number(m[1]);
-  }
-  return 0;
-}
-
 /** `// @optimization: speed` in the entry file's directive head (or the
  * SCRIPTC_TEST_OPTIMIZATION=speed lane): compile with --optimization=speed,
  * for programs that pin behavior of the size-for-speed code paths. */
@@ -93,137 +84,9 @@ function wantsSpeed(file: string): boolean {
   );
 }
 
-/** `// @transform-types` in the entry file's directive head: the Node
- * side runs with --experimental-transform-types — for corpus programs
- * using non-erasable TypeScript syntax (namespaces) that Node's default
- * strip-only mode refuses to parse. The transform IS the oracle there:
- * scriptc must match what Node executes under the flag. */
-function wantsTransformTypes(file: string): boolean {
-  if (directiveHead(file).some((l) => /^\/\/ @transform-types\s*$/.test(l))) return true;
-  // Enums are the other lowered construct with a runtime transform: programs
-  // declaring one ride the same flag without a directive. The flags stay a
-  // pure function of the program bytes, so the oracle cache key needs no
-  // extension.
-  return programInputs(file).some((f) => /\benum\s+[A-Za-z_$]/.test(readFileSync(f, "utf8")));
-}
-
-/** `// @env: NAME=VALUE[,NAME=VALUE]` in the entry file's directive head:
- * the variables are set for BOTH sides — the Node oracle and the compiled
- * binary — so a program can pin the ambient state that decides Intl output
- * (TZ for the time zone, LC_ALL/LANG for the default locale). The directive
- * lives in the program bytes the oracle cache key hashes, so a recorded
- * verdict can never be replayed under different variables. */
-function programEnv(file: string): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const line of directiveHead(file)) {
-    const m = /^\/\/ @env:\s*(.+?)\s*$/.exec(line);
-    if (m === null) continue;
-    for (const pair of m[1]!.split(",")) {
-      const eq = pair.indexOf("=");
-      if (eq > 0) env[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
-    }
-  }
-  return env;
-}
-
-/** `// @tsc-decorators` in the entry file's directive head: the Node side
- * runs tsc's ES-decorator downlevel of the program (target ES2022) —
- * decorators are the one supported construct Node cannot execute AT ALL
- * (V8 has not shipped the proposal; both strip and transform modes leave
- * `@dec` in place and V8 rejects the syntax), so the reference downlevel
- * every decorator user ships to production IS the oracle. Single-file
- * programs only (the transform materializes one entry beside the cache).
- */
-function wantsTscDecorators(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @tsc-decorators\s*$/.test(l));
-}
-
-/** The file the Node oracle executes: the program itself, or (decorator
- * programs) its deterministic ES2022 downlevel materialized under the
- * test cache — a pure function of the program bytes and the typescript
- * version (both in the oracle cache key). */
-function nodeOracleFile(file: string): string {
-  if (wantsTscJsx(directiveHead(file))) return tscJsxOracleEntry(file, cacheDir);
-  if (!wantsTscDecorators(file)) return file;
-  const src = readFileSync(file, "utf8");
-  const out = ts5.transpileModule(src, {
-    compilerOptions: { target: ts5.ScriptTarget.ES2022, module: ts5.ModuleKind.ESNext },
-    fileName: file,
-  }).outputText;
-  const key = createHash("sha256")
-    .update(ts5.version)
-    .update("\0")
-    .update(src)
-    .digest("hex")
-    .slice(0, 16);
-  const path = join(cacheDir, `dec-oracle-${key}.mjs`);
-  mkdirSync(cacheDir, { recursive: true });
-  // Atomic publish: concurrent suites (the other flavor's full run, or
-  // another lane over the same program) write this same content-keyed
-  // path; rename keeps readers from ever seeing a truncated oracle.
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, out);
-  renameSync(tmp, path);
-  return path;
-}
-
-/** `// @no-deprecation` in the directive head: the Node oracle runs with
- * --no-deprecation, for programs whose DEP warnings carry a pid and cannot
- * compare. The compiled program does not read the directive; a program
- * whose compiled form reports the warning sets process.noDeprecation. */
-function wantsNoDeprecation(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @no-deprecation\s*$/.test(l));
-}
-
-/** `// @requires-icu` in the directive head: the program's Intl forms are
- * answered by ICU, which the runtime packs build only for the Linux x64
- * target in this slice. Other lanes (the macOS-native contracts, the wasm
- * and Windows packs) skip these programs instead of failing: the compiler
- * refuses the forms there with SC3002. */
-function requiresIcu(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @requires-icu\s*$/.test(l));
-}
-
 /** Whether this machine's runtime pack can link ICU (see requiresIcu). */
 function icuAvailable(): boolean {
   return process.platform === "linux" && process.arch === "x64";
-}
-
-/** `// @normalize-pid` in the directive head: Node's process warnings
- * ("(node:<pid>) [DEP0040] ...") are compared with the pid replaced on both
- * sides — for island programs, where Node itself prints the warning in the
- * compiled program's process. */
-function wantsPidNormalized(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @normalize-pid\s*$/.test(l));
-}
-
-function withoutWarningPid(stderr: Buffer): Buffer {
-  return Buffer.from(stderr.toString("utf8").replace(/^\(node:\d+\) /gm, "(node:PID) "), "utf8");
-}
-
-/** The Node oracle's argv for a corpus entry (shims + the per-program
- * transform flag). */
-/** `// @disallow-code-generation` in the directive head: the Node oracle
- * runs with --disallow-code-generation-from-strings — the mode compiled
- * programs match for eval and the Function constructor, which throw its
- * EvalError (code-generation.ts). Programs that never generate code
- * behave identically either way. */
-function wantsDisallowCodeGeneration(file: string): boolean {
-  return directiveHead(file).some((l) => /^\/\/ @disallow-code-generation\s*$/.test(l));
-}
-
-function nodeOracleArgs(file: string): string[] {
-  const transform = wantsTransformTypes(file)
-    ? ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"]
-    : [];
-  const nodep = wantsNoDeprecation(file) ? ["--no-deprecation"] : [];
-  const codegen = wantsDisallowCodeGeneration(file)
-    ? ["--disallow-code-generation-from-strings"]
-    : [];
-  // --import makes Node load even a CJS entry through its ESM loader,
-  // changing an entry throw's uncaughtException origin to unhandledRejection.
-  const shims = directiveHead(file).includes("// @no-node-shims") ? [] : ["--import", comptimeShim];
-  return [...transform, ...nodep, ...codegen, ...shims, nodeOracleFile(file)];
 }
 
 /** Runs a binary, tolerating an expected nonzero exit (execFile rejects on
@@ -284,25 +147,6 @@ function comparableStderr(stderr: Buffer): Buffer {
       !/^==\d+==WARNING: ASan doesn't fully support makecontext\/swapcontext/.test(l),
   );
   return Buffer.from(kept.join("\n"), "utf8");
-}
-
-// `comptime(fn)` in plain JS semantics is just `fn()` — the shim defines it
-// globally so Node stays the oracle for comptime programs (the compile-time
-// result must equal what Node computes at runtime); inert for the rest.
-const comptimeShim = pathToFileURL(join(import.meta.dirname, "comptime-shim.mjs")).href;
-
-/** Entry file plus siblings for directory tests — every byte a program run
- * depends on, shared by the oracle cache key and the compile cache key.
- * Directory tests hash RECURSIVELY (nested modules like common/index.js)
- * plus the configs that steer both sides (tsconfig.json adoption,
- * package.json module-format detection). */
-function programInputs(file: string): string[] {
-  if (!/\/main\.(ts|js|mjs|cjs)$/.test(file)) return [file];
-  return [
-    ...[...ENTRY_EXTS, "tsx", "jsx"].flatMap((ext) => globSync(join(file, `../**/*.${ext}`))),
-    ...globSync(join(file, "../**/tsconfig.json")),
-    ...globSync(join(file, "../**/package.json")),
-  ].sort();
 }
 
 // ---- oracle result cache ---------------------------------------------------
@@ -401,10 +245,8 @@ async function runNode(file: string): Promise<RunResult> {
       /* miss (or unreadable record) — spawn Node below */
     }
   }
-  // Node 24 strips types natively; the supported subset is erasable by
-  // construction — except `// @transform-types` programs (namespaces),
-  // which run under Node's transform mode.
-  const res = await runBinary("node", nodeOracleArgs(file), programEnv(file));
+  const { command, args } = oracleInvocation(file);
+  const res = await runBinary(command, args, programEnv(file));
   if (cachePath !== null) {
     try {
       const tmp = `${cachePath}.${process.pid}.${Math.random().toString(36).slice(2)}`;
