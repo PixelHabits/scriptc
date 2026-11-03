@@ -462,6 +462,11 @@ static ScrDyn *scr_bytes_dyn_index_of(const ScrBytes *b, ScrDyn *const *args, si
   const ScrDyn *value = scr_bytes_dyn_arg(args, argc, 0);
   const ScrDyn *offset = scr_bytes_dyn_arg(args, argc, 1);
   const ScrDyn *encoding = scr_bytes_dyn_arg(args, argc, 2);
+  if (argc > 3 || (argc > 2 && encoding->kind != SCR_DYN_STR && encoding->kind != SCR_DYN_UNDEF)) {
+    static const char message[] = "Buffer search with an end bound is not supported yet [SC2020]";
+    scr_throw_error_msg_code(SCR_ERR_ERROR, message, sizeof message - 1, "SC2020");
+    return NULL;
+  }
   double at = NAN;
   if (offset->kind == SCR_DYN_STR) {
     encoding = offset;
@@ -486,7 +491,7 @@ static ScrDyn *scr_bytes_dyn_index_of(const ScrBytes *b, ScrDyn *const *args, si
       if (!enc) return NULL;
       bool ucs2 = enc->len == 7 && !memcmp(enc->data, "utf16le", 7);
       ScrBytes *needle = scr_bytes_from_str(value->v.str, enc);
-      found = scr_bytes_index_of(b, needle, at, ucs2 ? 2 : 1, fwd);
+      found = scr_bytes_index_of(b, needle, at, ucs2 ? -2 : 1, fwd);
       scr_bytes_release(needle);
       scr_str_release(enc);
     } else if (value->kind == SCR_DYN_BYTES && !value->v.bytes->is_data_view &&

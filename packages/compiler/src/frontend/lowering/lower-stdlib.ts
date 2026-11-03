@@ -45,7 +45,7 @@ import {
 import { foldedStringKeyOf, lowerDynObjectLiteral } from "./expressions/object-literals.js";
 import { noteEventListeners } from "./lower-event-target.js";
 import { PoisonError, newFnCtx, own } from "./lowerer.js";
-import { node24FetchCompatProfile, staticFetchMembers } from "../../compat/fetch-profile.js";
+import { node26FetchCompatProfile, staticFetchMembers } from "../../compat/fetch-profile.js";
 import { classGeneratorIterable } from "./class-iterables.js";
 import { generatorDrain } from "./iterator-adapters.js";
 import { isSafeToRepeat } from "./expressions/evaluation-safety.js";
@@ -438,7 +438,7 @@ function fenceRequestInitObject(
     : contextual
       ? [contextual]
       : [];
-  const rows = node24FetchCompatProfile().inventory.entries.filter(
+  const rows = node26FetchCompatProfile().inventory.entries.filter(
     (entry) => entry.owner === "RequestInit" && entry.placement === "dictionary",
   );
   const shadowed = new Set<string>();
@@ -841,7 +841,7 @@ function fetchInventoryStatus(
   placement: "static" | "prototype" | "prototype-symbol",
 ): "static" | "unsupported" | "out-of-scope" | null {
   return (
-    node24FetchCompatProfile().inventory.entries.find(
+    node26FetchCompatProfile().inventory.entries.find(
       (entry) => entry.owner === owner && entry.member === member && entry.placement === placement,
     )?.status ?? null
   );
@@ -852,7 +852,7 @@ function fetchInventoryReason(
   member: string,
   placement: "static" | "prototype" | "prototype-symbol",
 ): string | undefined {
-  return node24FetchCompatProfile().inventory.entries.find(
+  return node26FetchCompatProfile().inventory.entries.find(
     (entry) => entry.owner === owner && entry.member === member && entry.placement === placement,
   )?.reason;
 }
@@ -1116,7 +1116,7 @@ function fetchInterfaceInventoryOwner(
   const symbol = [type.getSymbol(), type.getAliasSymbol()].find(
     (candidate) =>
       candidate !== undefined &&
-      node24FetchCompatProfile().inventory.interfaces.includes(ts.symbolName(candidate)) &&
+      node26FetchCompatProfile().inventory.interfaces.includes(ts.symbolName(candidate)) &&
       lowerer.isStdlibSymbol(candidate),
   );
   return symbol ? { owner: ts.symbolName(symbol), symbol } : null;
@@ -1131,7 +1131,7 @@ function fenceFetchObjectMembers(
   if (!resolved) return;
   const { owner, symbol } = resolved;
   for (const { member, node } of members) {
-    const row = node24FetchCompatProfile().inventory.entries.find(
+    const row = node26FetchCompatProfile().inventory.entries.find(
       (entry) =>
         entry.owner === owner &&
         entry.member === member &&
@@ -1144,7 +1144,7 @@ function fenceFetchObjectMembers(
     // Static data properties retain the ordinary checked-dynamic keyed-read
     // lowering. Only a method extraction loses the receiver that its direct
     // call bridge would preserve; non-static rows keep their inventory fence.
-    const operation = node24FetchCompatProfile().operations.find(
+    const operation = node26FetchCompatProfile().operations.find(
       (candidate) => candidate.id === row.id,
     );
     if (row.status === "static" && operation?.kind === "property") {
@@ -1243,7 +1243,7 @@ export function lowerFetchElementMethodCall(
     return null;
   }
   const rows = members.map((member) =>
-    node24FetchCompatProfile().inventory.entries.find(
+    node26FetchCompatProfile().inventory.entries.find(
       (entry) =>
         entry.owner === resolved.owner &&
         entry.member === member &&

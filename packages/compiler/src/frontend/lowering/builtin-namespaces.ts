@@ -34,7 +34,7 @@ interface NamespaceMember {
   readonly length: number;
 }
 
-/** Node 24's own string-keyed properties of the namespace `name`, in
+/** Node's own string-keyed properties of the namespace `name`, in
  * order, or null when `name` is not a namespace. */
 function namespaceMembers(name: string): readonly NamespaceMember[] | null {
   switch (name) {
@@ -56,6 +56,7 @@ function namespaceMembers(name: string): readonly NamespaceMember[] | null {
         { key: "cosh", length: 1 },
         { key: "exp", length: 1 },
         { key: "floor", length: 1 },
+        { key: "f16round", length: 1 },
         { key: "fround", length: 1 },
         { key: "hypot", length: 2 },
         { key: "imul", length: 2 },
@@ -83,7 +84,6 @@ function namespaceMembers(name: string): readonly NamespaceMember[] | null {
         { key: "PI", length: -1 },
         { key: "SQRT1_2", length: -1 },
         { key: "SQRT2", length: -1 },
-        { key: "f16round", length: 1 },
       ];
     case "JSON":
       return [

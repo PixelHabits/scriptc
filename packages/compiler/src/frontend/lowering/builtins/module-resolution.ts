@@ -21,7 +21,7 @@ import {
   noLoweringDiag,
   unsupportedPackageImportDiag,
 } from "../../../diagnostics/diagnostic.js";
-import { NODE_BUILTIN_MODULES_V24, builtinModulesArrayLit } from "../surfaces.js";
+import { NODE_BUILTIN_MODULES_V26, builtinModulesArrayLit } from "../surfaces.js";
 import { moduleFileName } from "../import-meta.js";
 import {
   BOOL,
@@ -104,7 +104,7 @@ export function lowerNodeModuleCall(
   }
   const slot = lowerer.declareHiddenLocal("%builtinName", STRING);
   const ref = (): IrExpr => varRef(slot.id, STRING, loc);
-  const accepted = NODE_BUILTIN_MODULES_V24.flatMap((name) =>
+  const accepted = NODE_BUILTIN_MODULES_V26.flatMap((name) =>
     name.startsWith("node:") ? [name] : [name, `node:${name}`],
   );
   let staticArgument: ts.Expression = argumentNode;

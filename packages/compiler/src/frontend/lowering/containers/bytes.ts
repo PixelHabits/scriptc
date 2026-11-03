@@ -758,6 +758,26 @@ export function lowerBytesStaticCall(
     };
   }
   if (
+    (access.name.text === "fromBase64" || access.name.text === "fromHex") &&
+    lowerer.isStdlibGlobal(access.expression, "Uint8Array")
+  ) {
+    const loc = locOf(call);
+    return {
+      kind: "dynCheck",
+      value: {
+        kind: "dynInvoke",
+        recv: lowerer.lowerExprExpecting(access.expression, DYN),
+        method: access.name.text,
+        calleeName: ts.getTextOfNode(access),
+        args: call.arguments.nodes.map((arg) => lowerer.lowerExprExpecting(arg, DYN)),
+        type: DYN,
+        loc,
+      },
+      type: BYTES_U8,
+      loc,
+    };
+  }
+  if (
     (access.name.text !== "from" && access.name.text !== "of") ||
     !ts.isIdentifier(access.expression)
   )
@@ -1255,6 +1275,23 @@ export function lowerBytesMethodCall(
         type: STRING,
         loc,
       };
+  }
+  if (
+    receiverIr.elem === "u8" &&
+    ["toBase64", "toHex", "setFromBase64", "setFromHex"].includes(name)
+  ) {
+    const value: IrExpr = {
+      kind: "dynInvoke",
+      recv: lowerer.lowerExprExpecting(access.expression, DYN),
+      method: name,
+      calleeName: ts.getTextOfNode(access),
+      args: call.arguments.nodes.map((arg) => lowerer.lowerExprExpecting(arg, DYN)),
+      type: DYN,
+      loc,
+    };
+    return name === "toHex" || name === "toBase64"
+      ? { kind: "dynCheck", value, type: STRING, loc }
+      : value;
   }
   if (name === "sort" || name === "toSorted") {
     return lowerBytesSortCall(lowerer, call, access, receiverIr);
@@ -2119,7 +2156,8 @@ function lowerBufferInstanceMethod(
     return { kind: "libCall", fn: "bytes.compareChk", args: [receiver, ...slots], type: F64, loc };
   }
   if (name === "indexOf" || name === "lastIndexOf" || name === "includes") {
-    if (nArgs < 1 || nArgs > 3) lowerer.noLowering(`.${name} with ${nArgs} arguments`, call);
+    if (nArgs < 1 || nArgs > 3 || (nArgs === 3 && !isEncodingArg(2)))
+      lowerer.noLowering(`Buffer.${name} with an end bound`, call);
     // The overloads: (v), (v, byteOffset), (v, encoding), (v, byteOffset,
     // encoding) — a trailing string-typed arg is the encoding.
     let encNode: ts.Expression | undefined;
@@ -2201,7 +2239,13 @@ function lowerBufferInstanceMethod(
           receiver: recv!,
           args: [
             { kind: "libCall", fn: "buffer.fromStr", args: [sRef!, encoding], type: BYTES_U8, loc },
-            bufEncodingAlign(enc, encoding, loc),
+            {
+              kind: "unary",
+              op: "-",
+              operand: bufEncodingAlign(enc, encoding, loc),
+              type: F64,
+              loc,
+            },
             ...(offRef ? [offRef] : []),
           ],
           type: resultT,

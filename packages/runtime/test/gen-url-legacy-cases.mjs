@@ -12,7 +12,7 @@
 //   r <from> <to> <url.resolve(from, to)>
 // A throwing call answers "E:" and the error's code (or name). Strings keep
 // printable ASCII and spell everything else (and "\") as \uXXXX UTF-16 code
-// units, so lone surrogates survive. Node v24 is required.
+// units, so lone surrogates survive. Node v26 is required.
 import url from "node:url";
 import { stdout } from "node:process";
 

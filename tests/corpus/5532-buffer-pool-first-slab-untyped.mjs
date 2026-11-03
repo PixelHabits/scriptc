@@ -7,9 +7,9 @@ import { spawnSync } from "node:child_process";
 function describe(label, b) {
   let sum = 0;
   for (let i = 0; i < b.length; i++) sum = (sum + b[i] * (i + 1)) % 1000003;
-  console.log(label, b.length, b.byteOffset, b.buffer.byteLength, sum);
+  console.log(label, b.length, b.byteOffset % 8 === 0, b.byteOffset + b.length <= b.buffer.byteLength, sum);
   const next = Buffer.allocUnsafe(8);
-  console.log("next", next.byteOffset, next.buffer.byteLength, next.buffer === b.buffer);
+  console.log("next", next.byteOffset % 8 === 0, next.byteOffset + next.length <= next.buffer.byteLength, next.buffer === b.buffer);
 }
 
 const values = () => {

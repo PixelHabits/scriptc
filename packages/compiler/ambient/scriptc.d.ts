@@ -247,3 +247,40 @@ declare namespace WebAssembly {
   ): Promise<WebAssemblyInstantiatedSource>;
   function validate(bytes: BufferSource): boolean;
 }
+
+/** Node's Date bridge to Temporal.Instant; native use reports SC2020. */
+interface Date {
+  toTemporalInstant(): Temporal.Instant;
+}
+
+interface Uint8Array<TArrayBuffer extends ArrayBufferLike = ArrayBufferLike> {
+  toBase64(options?: { alphabet?: "base64" | "base64url"; omitPadding?: boolean }): string;
+  toHex(): string;
+  setFromBase64(
+    string: string,
+    options?: {
+      alphabet?: "base64" | "base64url";
+      lastChunkHandling?: "loose" | "strict" | "stop-before-partial";
+    },
+  ): { read: number; written: number };
+  setFromHex(string: string): { read: number; written: number };
+}
+interface Uint8ArrayConstructor {
+  fromBase64(
+    string: string,
+    options?: {
+      alphabet?: "base64" | "base64url";
+      lastChunkHandling?: "loose" | "strict" | "stop-before-partial";
+    },
+  ): Uint8Array<ArrayBuffer>;
+  fromHex(string: string): Uint8Array<ArrayBuffer>;
+}
+
+interface Buffer<TArrayBuffer extends ArrayBufferLike = ArrayBufferLike> {
+  copy(
+    target: ArrayBufferView,
+    targetStart?: number,
+    sourceStart?: number,
+    sourceEnd?: number,
+  ): number;
+}

@@ -9,7 +9,7 @@
  * JWK, and the raw-public and raw-private encodings; the EC curves are
  * prime256v1, secp384r1, secp521r1 and secp256k1, and the Ed25519
  * arithmetic is scr_ed25519.c. Argument checks
- * and errors follow Node 24's lib/internal/crypto/keys.js, keygen.js and
+ * and errors follow Node's lib/internal/crypto/keys.js, keygen.js and
  * sig.js. Private keys export and import encrypted as PBES2 PKCS#8 and as
  * traditional PEM. Other key types throw a coded SC2020 error.
  * All arguments are borrowed. */
@@ -46,26 +46,22 @@ static void sp_throw(int kind, const char *code, const char *message) {
   scr_throw_error_msg_code(kind, message, strlen(message), code);
 }
 
-/* An OpenSSL error as Node's ThrowCryptoError reports it,
- * "error:<packed>:<library>::<reason>", with own library, reason and code
- * properties in Node's key order. A crypto job's callback gets the error
- * without them (`props` false), as from Node's async jobs. */
-static void sp_throw_openssl(const char *packed, const char *library, const char *reason, const char *code,
-                             bool props) {
+/* An OpenSSL error as Node reports it, from ThrowCryptoError or a crypto
+ * job, "error:<packed>:<library>::<reason>", with own library, reason and
+ * code properties in Node's key order. */
+static void sp_throw_openssl(const char *packed, const char *library, const char *reason, const char *code) {
   char message[160];
   snprintf(message, sizeof message, "error:%s:%s::%s", packed, library, reason);
   ScrStr *text = scr_str_new(message, strlen(message));
   ScrError *e = scr_error_new(SCR_ERR_ERROR, text);
   scr_str_release(text);
-  if (props) {
-    const char *keys[] = {"library", "reason", "code"};
-    const char *values[] = {library, reason, code};
-    for (size_t i = 0; i < 3; i++) {
-      if (i == 2) scr_error_set_code(e, code);
-      ScrStr *value = scr_str_new(values[i], strlen(values[i]));
-      scr_error_set_prop(e, keys[i], strlen(keys[i]), scr_dyn_new_str(value));
-      scr_str_release(value);
-    }
+  const char *keys[] = {"library", "reason", "code"};
+  const char *values[] = {library, reason, code};
+  for (size_t i = 0; i < 3; i++) {
+    if (i == 2) scr_error_set_code(e, code);
+    ScrStr *value = scr_str_new(values[i], strlen(values[i]));
+    scr_error_set_prop(e, keys[i], strlen(keys[i]), scr_dyn_new_str(value));
+    scr_str_release(value);
   }
   scr_throw_obj(e, &scr_error_retain_v, &scr_error_release_v, scr_error_trace_arg());
 }
@@ -673,7 +669,7 @@ static const struct {
 };
 
 /* The names OpenSSL 3.5 refuses to encrypt a private key with in one form
- * or both, from Node 24 (the legacy-provider names fail in both). Other
+ * or both, from Node (the legacy-provider names fail in both). Other
  * names Node knows encrypt there and are refused here. */
 #define SP_KC_FAIL(name, pkcs8, traditional) \
   {name, NULL, MBEDTLS_CIPHER_NONE, NULL, 0, 0, 0, false, SP_KC_##pkcs8, SP_KC_##traditional}
@@ -831,7 +827,7 @@ static bool sp_key_cipher_ready(const SpKeyCipher *ci, bool pkcs8, size_t len) {
   if ((error == SP_KC_INPUT_LENGTH || error == SP_KC_OPERATION) && len % 8 == 0) error = SP_KC_OK;
   if (error != SP_KC_OK) {
     sp_throw_openssl(sp_key_cipher_errors[error].packed, sp_key_cipher_errors[error].library,
-                     sp_key_cipher_errors[error].reason, sp_key_cipher_errors[error].code, true);
+                     sp_key_cipher_errors[error].reason, sp_key_cipher_errors[error].code);
     return false;
   }
   if (ci->type == MBEDTLS_CIPHER_NONE) {
@@ -2691,12 +2687,11 @@ static bool sp_pss_digest(const ScrDyn *name, bool mgf1, mbedtls_md_type_t *md) 
 
 /* rsa-pss's options after the modulus and exponent, in Node's order
  * (lib/internal/crypto/keygen.js): saltLength, hashAlgorithm,
- * mgf1HashAlgorithm, and the deprecated hash and mgf1Hash with their
- * DEP0154 warnings, then the digest lookups of RsaKeyGenTraits. */
+ * mgf1HashAlgorithm, the removed hash and mgf1Hash, then the digest
+ * lookups of RsaKeyGenTraits. */
 static bool sp_pss_keygen_options(const ScrDyn *options, SpKeyGen *gen) {
   const ScrDyn *salt = sp_opt(options, "saltLength");
-  const ScrDyn *hash_alg = sp_opt(options, "hashAlgorithm"), *mgf1_alg = sp_opt(options, "mgf1HashAlgorithm");
-  const ScrDyn *hash = sp_opt(options, "hash"), *mgf1_hash = sp_opt(options, "mgf1Hash");
+  const ScrDyn *md = sp_opt(options, "hashAlgorithm"), *mgf1 = sp_opt(options, "mgf1HashAlgorithm");
   if (!sp_absent(salt)) {
     if (salt->kind != SCR_DYN_NUM) {
       scr_dyn_prop_type_fail("options.saltLength", "of type number", salt);
@@ -2715,54 +2710,23 @@ static bool sp_pss_keygen_options(const ScrDyn *options, SpKeyGen *gen) {
     gen->salt_set = true;
     gen->salt = (int)x;
   }
-  if (!sp_absent(hash_alg) && hash_alg->kind != SCR_DYN_STR) {
-    scr_dyn_prop_type_fail("options.hashAlgorithm", "of type string", hash_alg);
+  if (!sp_absent(md) && md->kind != SCR_DYN_STR) {
+    scr_dyn_prop_type_fail("options.hashAlgorithm", "of type string", md);
     return false;
   }
-  if (!sp_absent(mgf1_alg) && mgf1_alg->kind != SCR_DYN_STR) {
-    scr_dyn_prop_type_fail("options.mgf1HashAlgorithm", "of type string", mgf1_alg);
+  if (!sp_absent(mgf1) && mgf1->kind != SCR_DYN_STR) {
+    scr_dyn_prop_type_fail("options.mgf1HashAlgorithm", "of type string", mgf1);
     return false;
   }
-  const struct {
-    const ScrDyn *value, *preferred;
-    const char *name, *preferred_name;
-  } deprecated[] = {
-    {hash, hash_alg, "options.hash", "options.hashAlgorithm"},
-    {mgf1_hash, mgf1_alg, "options.mgf1Hash", "options.mgf1HashAlgorithm"},
-  };
+  static const char *const removed[] = {"hash", "mgf1Hash"};
   for (size_t i = 0; i < 2; i++) {
-    if (sp_absent(deprecated[i].value)) continue;
-    ScrJsonBuf text;
-    scr_jb_init(&text);
-    scr_jb_puts(&text, "\"");
-    scr_jb_puts(&text, deprecated[i].name);
-    scr_jb_puts(&text, "\" is deprecated, use \"");
-    scr_jb_puts(&text, deprecated[i].preferred_name);
-    scr_jb_puts(&text, "\" instead.");
-    /* process.emitWarning: reported on the next tick, dropped under
-     * process.noDeprecation, and thrown from its own tick under
-     * process.throwDeprecation. */
-    ScrStr *message = scr_jb_finish(&text);
-    ScrStr *code = scr_str_new("DEP0154", 7);
-    ScrDyn *warning = scr_warning_new(message, "DeprecationWarning", code);
-    scr_str_release(code);
-    scr_str_release(message);
-    scr_warning_emit_deferred(warning);
-    scr_dyn_release(warning);
-    if (deprecated[i].value->kind != SCR_DYN_STR) {
-      scr_dyn_prop_type_fail(deprecated[i].name, "of type string", deprecated[i].value);
-      return false;
-    }
-    const ScrDyn *preferred = deprecated[i].preferred;
-    if (preferred->kind == SCR_DYN_STR && preferred->v.str->len > 0 &&
-        !scr_str_eq(preferred->v.str, deprecated[i].value->v.str)) {
-      sp_property_invalid(deprecated[i].name, deprecated[i].value);
-      return false;
-    }
+    const ScrDyn *value = sp_opt(options, removed[i]);
+    if (sp_absent(value)) continue;
+    char name[24];
+    snprintf(name, sizeof name, "options.%s", removed[i]);
+    sp_property_invalid_because(name, value, "is no longer supported");
+    return false;
   }
-  /* `hashAlgorithm || hash`: an empty string reads as absent. */
-  const ScrDyn *md = hash_alg->kind == SCR_DYN_STR && hash_alg->v.str->len > 0 ? hash_alg : hash;
-  const ScrDyn *mgf1 = mgf1_alg->kind == SCR_DYN_STR && mgf1_alg->v.str->len > 0 ? mgf1_alg : mgf1_hash;
   if (md->kind == SCR_DYN_STR) {
     if (!sp_pss_digest(md, false, &gen->md)) return false;
     gen->md_set = true;
@@ -2843,11 +2807,11 @@ static bool sp_keygen_check(const ScrDyn *type, const ScrDyn *options, SpKeyGen 
     for (size_t i = 0; i < sizeof sp_other_named_types / sizeof sp_other_named_types[0]; i++)
       named = named || sp_is_str(type, sp_other_named_types[i]);
     if (!named) {
-      ScrStr *received = sp_received(type, false);
+      /* NamedKeyPairGenTraits formats the name as given, without inspecting
+       * it. */
       scr_pki_throw_fmt(SCR_ERR_TYPE, "ERR_INVALID_ARG_VALUE",
-                        "The argument 'type' must be a supported key type. Received %.*s", (int)received->len,
-                        received->data);
-      scr_str_release(received);
+                        "The argument 'type' must be a supported key type. Received '%.*s'", (int)type->v.str->len,
+                        type->v.str->data);
       return false;
     }
     if (!refusal) refusal = "generateKeyPairSync for this key type";
@@ -2925,13 +2889,19 @@ static int sp_rsa_generate(mbedtls_rsa_context *rsa, unsigned bits, uint64_t exp
 }
 
 /* OpenSSL's error for an RSA modulus length or public exponent it does not
- * generate, as Node reports it, or NULL. */
-static const char *sp_rsa_keygen_failure(double bits, double exponent) {
-  if (bits < 512) return "error:1C8000AB:Provider routines::key size too small";
-  if (exponent == 0) return "Key generation job failed";
-  if (bits > 2147483647.0) return "error:02000078:rsa routines::key size too small";
-  if (exponent == 1 || fmod(exponent, 2) == 0) return "error:020000B2:rsa routines::pub exponent out of range";
-  return NULL;
+ * generate, as Node reports it: throws and answers true when it rejects. */
+static bool sp_rsa_keygen_rejects(double bits, double exponent) {
+  if (bits < 512)
+    sp_throw_openssl("1C8000AB", "Provider routines", "key size too small", "ERR_OSSL_KEY_SIZE_TOO_SMALL");
+  else if (exponent == 0)
+    scr_pki_throw_fmt(SCR_ERR_ERROR, NULL, "Key generation job failed");
+  else if (bits > 2147483647.0)
+    sp_throw_openssl("02000078", "rsa routines", "key size too small", "ERR_OSSL_RSA_KEY_SIZE_TOO_SMALL");
+  else if (exponent == 1 || fmod(exponent, 2) == 0)
+    sp_throw_openssl("020000B2", "rsa routines", "pub exponent out of range", "ERR_OSSL_RSA_PUB_EXPONENT_OUT_OF_RANGE");
+  else
+    return false;
+  return true;
 }
 
 /* Generates the key `gen` describes: NULL with the error pending, and
@@ -2960,11 +2930,9 @@ static SpKey *sp_keygen_run(const SpKeyGen *gen, bool *job_error) {
     return k;
   }
   if (gen->kind == SP_GEN_RSA) {
-    const char *failure = sp_rsa_keygen_failure(gen->bits, gen->exponent);
-    if (failure) {
+    if (sp_rsa_keygen_rejects(gen->bits, gen->exponent)) {
       sp_key_release(k);
       *job_error = true;
-      scr_pki_throw_fmt(SCR_ERR_ERROR, NULL, "%s", failure);
       return NULL;
     }
     /* Moduli past mbedTLS's 8192-bit numbers stay unsupported (OpenSSL
@@ -3242,7 +3210,7 @@ static bool sp_pss_key_rules(SpSigKey *key, mbedtls_md_type_t md, size_t hash_le
   if (!k->rsa_pss) return true;
   if (key->padding_given && key->padding != 6) {
     sp_throw_openssl("1C8000A5", "Provider routines", "illegal or unsupported padding mode",
-                     "ERR_OSSL_ILLEGAL_OR_UNSUPPORTED_PADDING_MODE", true);
+                     "ERR_OSSL_ILLEGAL_OR_UNSUPPORTED_PADDING_MODE");
     return false;
   }
   key->padding = 6;
@@ -3251,7 +3219,7 @@ static bool sp_pss_key_rules(SpSigKey *key, mbedtls_md_type_t md, size_t hash_le
     return true;
   }
   if (md != k->pss_md) {
-    sp_throw_openssl("1C8000AE", "Provider routines", "digest not allowed", "ERR_OSSL_DIGEST_NOT_ALLOWED", true);
+    sp_throw_openssl("1C8000AE", "Provider routines", "digest not allowed", "ERR_OSSL_DIGEST_NOT_ALLOWED");
     return false;
   }
   key->mgf1 = k->pss_mgf1;
@@ -3261,7 +3229,7 @@ static bool sp_pss_key_rules(SpSigKey *key, mbedtls_md_type_t md, size_t hash_le
   if (!key->salt_given) {
     key->salt = k->pss_salt;
   } else if (key->salt != -2 && (key->salt == -1 ? (int)hash_len : key->salt) < k->pss_salt) {
-    sp_throw_openssl("1C8000AC", "Provider routines", "pss saltlen too small", "ERR_OSSL_PSS_SALTLEN_TOO_SMALL", true);
+    sp_throw_openssl("1C8000AC", "Provider routines", "pss saltlen too small", "ERR_OSSL_PSS_SALTLEN_TOO_SMALL");
     return false;
   }
   return true;
@@ -3462,7 +3430,7 @@ static bool sp_reject_x25519(SpSigKey *k) {
   if (!sp_is_x(k->key)) return false;
   sp_key_release(k->key);
   sp_throw_openssl("03000096", "digital envelope routines", "operation not supported for this keytype",
-                   "ERR_OSSL_EVP_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE", true);
+                   "ERR_OSSL_EVP_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE");
   return true;
 }
 
@@ -3843,13 +3811,8 @@ static const char *sp_type_name(const SpKey *k) {
  * sign and verify read their keys. */
 static bool sp_dh_key(const ScrDyn *value, const char *name, bool private_key, SpSigKey *out) {
   out->key = NULL;
-  /* Node's key preparation destructures the value before it checks it. */
-  if (value->kind == SCR_DYN_NULL) {
-    scr_pki_throw_fmt(SCR_ERR_TYPE, NULL, "Cannot destructure property 'key' of 'key' as it is null.");
-    return false;
-  }
   bool keyish = value->kind == SCR_DYN_STR || value->kind == SCR_DYN_BYTES || scr_buffer_storage_is(value) ||
-                (value->kind != SCR_DYN_NULL && value->kind != SCR_DYN_FUNC && scr_dyn_is_object(value));
+                (value->kind != SCR_DYN_FUNC && scr_dyn_is_object(value));
   if (!keyish) {
     scr_dyn_prop_type_fail(name, private_key ? sp_dh_private_types : sp_dh_public_types, value);
     return false;
@@ -3859,16 +3822,15 @@ static bool sp_dh_key(const ScrDyn *value, const char *name, bool private_key, S
 
 /* The shared secret of two keys of one type: X25519, or ECDH's x
  * coordinate at the field's size. NULL with OpenSSL's error pending. */
-static void sp_dh_failed(bool props) {
-  sp_throw_openssl("1C8000A4", "Provider routines", "failed during derivation", "ERR_OSSL_FAILED_DURING_DERIVATION",
-                   props);
+static void sp_dh_failed(void) {
+  sp_throw_openssl("1C8000A4", "Provider routines", "failed during derivation", "ERR_OSSL_FAILED_DURING_DERIVATION");
 }
 
-static ScrDyn *sp_dh_compute(SpKey *priv, SpKey *pub, bool props) {
+static ScrDyn *sp_dh_compute(SpKey *priv, SpKey *pub) {
   if (sp_is_x(priv) && sp_is_x(pub)) {
     uint8_t out[32];
     if (!sp_x25519(priv->ed_seed, pub->ed_pub, out)) {
-      sp_dh_failed(props);
+      sp_dh_failed();
       return NULL;
     }
     ScrDyn *secret = sp_dyn_buffer(out, 32);
@@ -3877,14 +3839,14 @@ static ScrDyn *sp_dh_compute(SpKey *priv, SpKey *pub, bool props) {
   }
   if (!sp_is_ec(priv) || !sp_is_ec(pub)) {
     sp_throw_openssl("03000096", "digital envelope routines", "operation not supported for this keytype",
-                     "ERR_OSSL_EVP_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE", props);
+                     "ERR_OSSL_EVP_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE");
     return NULL;
   }
   mbedtls_ecp_keypair *a = mbedtls_pk_ec(priv->pk);
   const mbedtls_ecp_keypair *b = mbedtls_pk_ec(pub->pk);
   if (a->MBEDTLS_PRIVATE(grp).id != b->MBEDTLS_PRIVATE(grp).id) {
     sp_throw_openssl("1C8000CB", "Provider routines", "mismatching domain parameters",
-                     "ERR_OSSL_MISMATCHING_DOMAIN_PARAMETERS", props);
+                     "ERR_OSSL_MISMATCHING_DOMAIN_PARAMETERS");
     return NULL;
   }
   mbedtls_mpi z;
@@ -3897,7 +3859,7 @@ static ScrDyn *sp_dh_compute(SpKey *priv, SpKey *pub, bool props) {
   mbedtls_mpi_free(&z);
   ScrDyn *secret = ok ? sp_dyn_buffer(out, n) : NULL;
   mbedtls_platform_zeroize(out, sizeof out);
-  if (!secret) sp_dh_failed(props);
+  if (!secret) sp_dh_failed();
   return secret;
 }
 
@@ -3913,9 +3875,10 @@ static void sp_dh_deliver(ScrClosure *self) {
 }
 
 /* crypto.diffieHellman(options[, callback]) in Node's order: the options
- * object, the callback, both keys present, the key types when both are
- * KeyObjects, then the public and private key inputs. With a callback,
- * the secret, or the error of computing it, arrives in a later macrotask. */
+ * object, the callback, both keys present, the KeyObject types, the key
+ * types when both are KeyObjects, then the public and private key inputs.
+ * With a callback, the secret, or the error of computing it, arrives in a
+ * later macrotask. */
 ScrDyn *scr_crypto_diffie_hellman(ScrDyn *options, ScrDyn *callback) {
   ScrDyn *plain = sp_plain(options);
   if (!plain) return NULL;
@@ -3929,16 +3892,28 @@ ScrDyn *scr_crypto_diffie_hellman(ScrDyn *options, ScrDyn *callback) {
   }
   const ScrDyn *private_value = sp_opt(plain, "privateKey");
   const ScrDyn *public_value = sp_opt(plain, "publicKey");
-  if (sp_absent(private_value)) {
+  if (sp_absent(private_value) || private_value->kind == SCR_DYN_NULL) {
     sp_property_invalid("options.privateKey", private_value);
     goto done;
   }
-  if (sp_absent(public_value)) {
+  if (sp_absent(public_value) || public_value->kind == SCR_DYN_NULL) {
     sp_property_invalid("options.publicKey", public_value);
     goto done;
   }
+  size_t secret_len;
   SpKey *a = sp_key_of(private_value), *b = sp_key_of(public_value);
-  if (a && b && a->private_key) {
+  if ((a && !a->private_key) || scr_key_object_bytes(private_value, &secret_len)) {
+    sp_throw(SCR_ERR_TYPE, "ERR_CRYPTO_INVALID_KEY_OBJECT_TYPE",
+             a ? "Invalid key object type public, expected private."
+               : "Invalid key object type secret, expected private.");
+    goto done;
+  }
+  if (scr_key_object_bytes(public_value, &secret_len)) {
+    sp_throw(SCR_ERR_TYPE, "ERR_CRYPTO_INVALID_KEY_OBJECT_TYPE",
+             "Invalid key object type secret, expected private or public.");
+    goto done;
+  }
+  if (a && b) {
     const char *ta = sp_type_name(a), *tb = sp_type_name(b);
     if (strcmp(ta, tb) != 0 || (!sp_is_ec(a) && !sp_is_x(a))) {
       scr_pki_throw_fmt(SCR_ERR_ERROR, "ERR_CRYPTO_INCOMPATIBLE_KEY",
@@ -3949,7 +3924,7 @@ ScrDyn *scr_crypto_diffie_hellman(ScrDyn *options, ScrDyn *callback) {
   if (!sp_dh_key(public_value, "options.publicKey", false, &pub) ||
       !sp_dh_key(private_value, "options.privateKey", true, &priv))
     goto done;
-  ScrDyn *secret = sp_dh_compute(priv.key, pub.key, !async);
+  ScrDyn *secret = sp_dh_compute(priv.key, pub.key);
   if (!async) {
     result = secret;
     goto done;

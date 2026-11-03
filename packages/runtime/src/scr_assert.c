@@ -212,14 +212,9 @@ bool scr_assert_skip_prototype(void) {
   return (g_instance_options & SCR_ASSERT_SKIP_PROTOTYPE) != 0;
 }
 
-/* A message argument that is not a string (an untyped value, or an Error
- * to throw): the compiled call registers it before the assertion and passes
- * SCR_ASSERT_VALUE_MESSAGE as its message, which the failure paths compose
- * like any custom message. A failure whose message starts with it throws
- * the Error itself (innerFail's `message instanceof Error`) or puts
- * String(value) in its place with generatedMessage `!value`, as Node's
- * AssertionError does. Matching the sentinel keeps a registration that no
- * failure consumed from reaching another assertion. */
+/* Non-string messages are registered before the assertion and resolved
+ * only on failure: Error values are thrown, factories receive the operands,
+ * and other values follow the assertion's message validation. */
 static SCR_TL ScrDyn *g_message_value;
 static SCR_TL bool g_message_error;
 
@@ -247,7 +242,44 @@ void scr_assert_fail(ScrStr *message, bool generated) {
       scr_dyn_throw(value);
       return;
     }
-    ScrStr *text = scr_dyn_string_coerce_js(value);
+    bool fail = g_record_operator && strcmp(g_record_operator, "fail") == 0;
+    if (!fail && scr_dyn_is_callable(value)) {
+      ScrDyn *actual = scr_dyn_retain(g_record_actual ? g_record_actual : scr_dyn_undefined());
+      ScrDyn *expected = scr_dyn_retain(g_record_expected ? g_record_expected : scr_dyn_undefined());
+      const char *op = g_record_operator;
+      ScrDyn *args[] = {actual, expected};
+      ScrDyn *result = scr_dyn_call(value, args, 2, "assert message");
+      if (scr_exc_pending()) scr_exc_clear();
+      ScrDyn *options = scr_dyn_new_obj();
+      scr_dyn_obj_set(options, "actual", 6, actual);
+      scr_dyn_obj_set(options, "expected", 8, expected);
+      if (op) scr_dyn_obj_set(options, "operator", 8, scr_assert_dyn_text(op));
+      scr_dyn_obj_set(options, "diff", 4, scr_assert_dyn_text(scr_assert_diff_full() ? "full" : "simple"));
+      if (result && result->kind == SCR_DYN_STR)
+        scr_dyn_obj_set(options, "message", 7, scr_dyn_retain(result));
+      scr_dyn_release(result);
+      ScrError *e = scr_assert_error_new(options);
+      if (op && strcmp(op, "==") == 0)
+        scr_error_set_prop(e, "generatedMessage", 16, scr_dyn_new_bool(false));
+      scr_dyn_release(options);
+      scr_dyn_release(value);
+      scr_str_release(message);
+      scr_assert_record(NULL, NULL, NULL);
+      g_instance_options = 0;
+      scr_throw_obj(e, &scr_error_retain_v, &scr_error_release_v, scr_error_trace_arg());
+      return;
+    }
+    if (!fail && value->kind != SCR_DYN_STR) {
+      scr_dyn_arg_type_fail("message", "one of type string or function", value);
+      scr_dyn_release(value);
+      scr_str_release(message);
+      scr_assert_record(NULL, NULL, NULL);
+      g_instance_options = 0;
+      return;
+    }
+    ScrStr *text = fail && value->kind == SCR_DYN_NULL
+                       ? scr_str_new("undefined fail undefined", 24)
+                       : scr_dyn_string_coerce_js(value);
     generated = !scr_dyn_truthy(value);
     scr_dyn_release(value);
     if (!text) {
@@ -3187,13 +3219,11 @@ ScrError *scr_assert_error_new(ScrDyn *options) {
  * assert.fail)`): one function per method, which takes its arguments as
  * untyped values and asserts as the method does. */
 
-/* Node's message argument: absent or null/undefined (a generated message),
- * a string, an Error (thrown when the assertion fails), or another value
- * (String(value)). The value is registered as scr_assert_fail reads it; the
- * caller clears it after the assertion. +1 into *msg. */
+/* Register a supplied message for failure-time validation. assert.fail
+ * uses AssertionError's own conversion instead. +1 into *msg. */
 static void scr_av_message(ScrDyn *const *args, size_t argc, size_t i, ScrStr **msg, bool *has) {
   const ScrDyn *m = i < argc ? args[i] : NULL;
-  if (!m || m->kind == SCR_DYN_UNDEF || m->kind == SCR_DYN_NULL) {
+  if (!m) {
     *msg = scr_str_new("", 0);
     *has = false;
     return;
@@ -3234,7 +3264,7 @@ static ScrDyn *scr_av_ok(ScrClosure *c, ScrDyn *const *args, size_t argc) {
   }
   ScrStr *msg;
   bool has;
-  scr_av_message(args, argc, 1, &msg, &has);
+  scr_av_message(args, argc > 1 && args[1]->kind == SCR_DYN_NULL ? 1 : argc, 1, &msg, &has);
   if (has) {
     scr_assert_fail(scr_str_retain(msg), false);
     return scr_av_done(msg);
@@ -3254,6 +3284,11 @@ static ScrDyn *scr_av_fail(ScrClosure *c, ScrDyn *const *args, size_t argc) {
   if (argc > 1) {
     static const char text[] = "assert.fail with more than one argument through a function value is not supported yet";
     scr_throw_error_msg_code(SCR_ERR_ERROR, text, sizeof text - 1, "SC2020");
+    return NULL;
+  }
+  if (argc == 0 || args[0]->kind == SCR_DYN_UNDEF) {
+    scr_assert_record(NULL, NULL, "fail");
+    scr_assert_fail(scr_str_new("Failed", 6), true);
     return NULL;
   }
   ScrStr *msg;

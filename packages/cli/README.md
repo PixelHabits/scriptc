@@ -26,7 +26,7 @@ scriptc is experimental. See the [limitations](https://scriptc.dev/docs/limitati
 $ npm install -g scriptc
 ```
 
-npm installs the native compiler for your platform (macOS, Linux, or Windows). Node.js 24 or later is needed to install it and to run WASI modules with `scriptc run`; compiling and running executables doesn't need Node.js.
+npm installs the native compiler for your platform (macOS, Linux, or Windows). Node.js 26.13.0 or later is needed to install it and to run WASI modules with `scriptc run`; compiling and running executables doesn't need Node.js.
 
 Building executables needs a linker and the platform SDK or sysroot, such as the Xcode Command Line Tools on macOS. Set `SCRIPTC_LINKER` to choose the linker driver. `--emit=ir|llvm|asm|obj` needs no external tools. See the [quickstart](https://scriptc.dev/docs/quickstart) for details.
 

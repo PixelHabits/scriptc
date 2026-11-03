@@ -99,7 +99,7 @@ scriptc implements a few packages itself and compiles that implementation in pla
 - The global `Request` and `Response` stay the built-in classes, so `overrideGlobalObjects` has no effect, and a `Response` reads its default text content type as `text/plain;charset=UTF-8` where the package's replacement reads `text/plain; charset=UTF-8`. Written responses carry the package's spelling.
 - A streamed response is written without waiting for `drain`, and a failed handler answers 504 only for an error whose `name` is `TimeoutError`.
 
-Small polyfill packages whose module is exactly a Node.js built-in on Node.js 24 compile as that built-in, at the `require()` that loads them, from your program's CommonJS files, from compiled packages, and from esbuild bundles whose module paths name the package and its version (as pnpm installs do). The package's own files aren't compiled.
+Small polyfill packages whose module is exactly a Node.js built-in on Node.js 26 compile as that built-in, at the `require()` that loads them, from your program's CommonJS files, from compiled packages, and from esbuild bundles whose module paths name the package and its version (as pnpm installs do). The package's own files aren't compiled.
 
 <table>
   <thead>

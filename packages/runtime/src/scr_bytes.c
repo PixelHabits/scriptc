@@ -1213,8 +1213,7 @@ ScrBytes *scr_bytes_from_dyn(ScrBytesElem elem, const ScrDyn *value, bool from) 
     if (!scr_dyn_number_coerce_js(value, &number)) return NULL;
     return scr_bytes_new(elem, number);
   }
-  // Constructors drain array iterators before element coercion. Node's .from
-  // fast path reads ordinary array elements during conversion instead. Strings
+  // Constructors and .from drain array iterators before element coercion. Strings
   // supplied to .from iterate by code point (set reads UTF-16 code units).
   // An object with a Symbol.iterator method iterates; others are array-like.
   ScrDyn *method = scr_dyn_iterator_method(value);
@@ -1231,7 +1230,7 @@ ScrBytes *scr_bytes_from_dyn(ScrBytesElem elem, const ScrDyn *value, bool from) 
     return out;
   }
   if (scr_exc_pending()) return NULL;
-  if ((!from && value->kind == SCR_DYN_ARR) || (from && value->kind == SCR_DYN_STR)) {
+  if (value->kind == SCR_DYN_ARR || (from && value->kind == SCR_DYN_STR)) {
     ScrDyn *items = scr_dyn_iter_pack(value, NULL);
     if (!items) return NULL;
     ScrBytes *out = scr_bytes_new(elem, (double)items->v.arr.len);
@@ -1302,7 +1301,8 @@ bool scr_js_bytes_live(const ScrBytes *b) {
 void scr_js_bytes_throw_detached(const char *label) {
   char message[160];
   int length = snprintf(message, sizeof message,
-                        "Cannot perform %s on a detached ArrayBuffer", label);
+                        "Cannot perform %s on a detached%s ArrayBuffer", label,
+                        strncmp(label, "ArrayBuffer.prototype.", 22) == 0 ? "" : " or out-of-bounds");
   scr_throw_error_msg(SCR_ERR_TYPE, message, (size_t)length);
 }
 
@@ -3326,6 +3326,87 @@ static ScrBytes *scr_bytes_conversion_storage(size_t capacity) {
   return scr_bytes_conversion_storage_in(NULL, capacity);
 }
 
+/* Uint8Array's strict codecs share Buffer's digit tables, but never its
+ * permissive decoding. last is 0 (loose), 1 (strict), or 2 (stop-before-partial).
+ * Writes complete chunks before a later syntax error, as FromBase64/FromHex do. */
+bool scr_bytes_decode_uint8(ScrStr *input, ScrBytes *target, bool hex, bool url,
+                             int last, size_t *read, size_t *written) {
+  const uint8_t *s = (const uint8_t *)input->data;
+  size_t n = input->len, i = 0, out = 0;
+  const char *error = NULL;
+  *read = *written = 0;
+  if (hex) {
+    if (n % 2) { error = "Input string must contain hex characters in even length"; goto done; }
+    while (i < n && out < target->len) {
+      int a = scr_hex_values[s[i]], b = scr_hex_values[s[i + 1]];
+      if (a < 0 || b < 0) { error = "Input string must contain hex characters in even length"; goto done; }
+      uint8_t byte = (uint8_t)((a << 4) | b);
+      scr_bytes_write(target, out++, &byte, 1);
+      i += 2;
+      *read = i;
+    }
+    goto done;
+  }
+  if (!target->len) return true;
+  unsigned bits = 0, count = 0;
+  for (;;) {
+    while (i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f')) i++;
+    if (i == n || s[i] == '=') {
+      bool padded = i < n;
+      if (padded) {
+        i++;
+        if (count < 2) { error = "Found a character that cannot be part of a valid base64 string."; goto done; }
+        while (i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f')) i++;
+        if (count == 2) {
+          if (i == n && last == 2) goto done;
+          if (i == n || s[i] != '=') {
+            error = last == 1 && i == n ? "The base64 input terminates with a single character, excluding padding (=)." : "Found a character that cannot be part of a valid base64 string.";
+            goto done;
+          }
+          i++;
+          while (i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f')) i++;
+        }
+        if (i != n) { error = "Found a character that cannot be part of a valid base64 string."; goto done; }
+      } else if (count) {
+        if (last == 2) goto done;
+        if (last == 1 || count == 1) { error = "The base64 input terminates with a single character, excluding padding (=)."; goto done; }
+      }
+      if (padded && last == 1 && ((count == 2 && (bits & 15)) || (count == 3 && (bits & 3)))) {
+        error = "The base64 input terminates with non-zero padding bits.";
+        goto done;
+      }
+      if (count) {
+        if (count - 1 > target->len - out) goto done;
+        uint8_t bytes[2] = {(uint8_t)(bits >> (count == 2 ? 4 : 10)), (uint8_t)(bits >> 2)};
+        scr_bytes_write(target, out, bytes, count - 1);
+        out += count - 1;
+      }
+      *read = n;
+      goto done;
+    }
+    uint8_t ch = s[i++];
+    int value = scr_b64_values[ch];
+    if (value < 0 || (url ? ch == '+' || ch == '/' : ch == '-' || ch == '_')) {
+      error = "Found a character that cannot be part of a valid base64 string.";
+      goto done;
+    }
+    bits = (bits << 6) | (unsigned)value;
+    if (++count == 4) {
+      if (target->len - out < 3) goto done;
+      uint8_t bytes[3] = {(uint8_t)(bits >> 16), (uint8_t)(bits >> 8), (uint8_t)bits};
+      scr_bytes_write(target, out, bytes, 3);
+      out += 3;
+      count = bits = 0;
+      *read = i;
+    }
+  }
+done:
+  *written = out;
+  if (!error) return true;
+  scr_throw_error_msg(SCR_ERR_SYNTAX, error, strlen(error));
+  return false;
+}
+
 /* scr_b64_values, each value shifted into its place in a four-character
  * group's 24 bits; a character outside both alphabets sets bit 24. */
 #define SCR_B64_VALUE(c)                                                       \
@@ -3576,10 +3657,11 @@ ScrBytes *scr_bytes_from_str(const ScrStr *s, const ScrStr *enc) {
  * freed once it is replaced and its last view is released (Node keeps a
  * slab alive the same way). */
 #define SCR_BUFFER_POOL_DEFAULT 65536.0
+#define SCR_BUFFER_POOL_ALIGNMENT 64
 size_t scr_num_received(double v, char out[48]);
 static SCR_TL double scr_pool_setting = SCR_BUFFER_POOL_DEFAULT;
 static SCR_TL ScrBytes *scr_pool_slab;
-static SCR_TL size_t scr_pool_offset;
+static SCR_TL size_t scr_pool_offset, scr_pool_end;
 static SCR_TL bool scr_pool_started;
 static SCR_TL bool scr_pool_registered; /* scr_buffer_pool_reset runs at context exit */
 
@@ -3614,14 +3696,14 @@ static size_t scr_pool_threshold(void) {
 /* Bytes left in the slab. Aligning can move the offset past the end of a
  * slab whose size is not a multiple of 8; nothing is left then. */
 static size_t scr_pool_room(void) {
-  if (!scr_pool_slab || scr_pool_offset >= scr_pool_slab->len) return 0;
-  return scr_pool_slab->len - scr_pool_offset;
+  if (!scr_pool_slab || scr_pool_offset >= scr_pool_end) return 0;
+  return scr_pool_end - scr_pool_offset;
 }
 
-/* Replaces the slab with one of `size` bytes (Node's createPool). false
+/* Overallocate to align the logical pool to a cache line (Node's createPool). false
  * with a pending RangeError when size is not a valid typed array length. */
 static bool scr_pool_create(double size) {
-  ScrBytes *slab = scr_bytes_new(SCR_BYTES_U8, size);
+  ScrBytes *slab = scr_bytes_new(SCR_BYTES_U8, size + SCR_BUFFER_POOL_ALIGNMENT);
   if (!slab) return false;
   slab->untransferable = true;
   if (!scr_pool_registered) {
@@ -3630,7 +3712,8 @@ static bool scr_pool_create(double size) {
   }
   scr_bytes_release(scr_pool_slab);
   scr_pool_slab = slab;
-  scr_pool_offset = 0;
+  scr_pool_offset = (SCR_BUFFER_POOL_ALIGNMENT - ((uintptr_t)slab->data & (SCR_BUFFER_POOL_ALIGNMENT - 1))) & (SCR_BUFFER_POOL_ALIGNMENT - 1);
+  scr_pool_end = scr_pool_offset + (size_t)size;
   scr_pool_started = true;
   return true;
 }
@@ -4083,6 +4166,15 @@ static double scr_bytes_index_of_ucs2(const ScrBytes *haystack, const ScrBytes *
 double scr_bytes_index_of(const ScrBytes *b, const ScrBytes *needle, double off, double align, bool fwd) {
   SCR_BYTES_SNAPSHOT(b);
   SCR_BYTES_SNAPSHOT(needle);
+  /* Encoded string needles start at the next complete UTF-16 unit. */
+  if (align == -2) {
+    if (fwd && needle->len > 0 && isfinite(off)) {
+      double start = trunc(off);
+      if (start < 0) start += (double)b->len;
+      if (start >= 0) off = ceil(start / 2) * 2;
+    }
+    align = 2;
+  }
   if (align == 2) return scr_bytes_index_of_ucs2(b, needle, off, fwd);
   size_t len = b->len, nlen = needle->len;
   double o = (off != off) ? (fwd ? 0 : (double)len) : trunc(off);

@@ -4,7 +4,7 @@ import { nullishReadTypeError, throwAfterEach } from "../primitive-throws.js";
 import { lowerStaticPrivateRead } from "../private-statics.js";
 import { widthNarrowHelper } from "../coercions/unions.js";
 /* Property reads (`a.b`): lowerExprInner's property-access branch, intrinsic and union properties, field reads and targets, and match-group reads. */
-import { jsSpecialGlobalValue } from "../global-values.js";
+import { jsSpecialGlobalValue, localStorageValue } from "../global-values.js";
 import {
   HOST_GLOBAL_PROTOTYPE_MEMBERS,
   HOST_GLOBAL_VALUE_MEMBERS,
@@ -144,7 +144,7 @@ import {
 } from "../lower-node-module.js";
 import { dynUndefinedExpr, nodeThrowExpr, numLit, strLit, varRef } from "../../../ir/build.js";
 import { typedArrayLacksMember } from "../builtins/typed-array-members.js";
-import { COMMONJS_MODULE_BINDINGS, TEMPORAL_GLOBAL } from "../../builtin-modules.js";
+import { COMMONJS_MODULE_BINDINGS } from "../../builtin-modules.js";
 import { tryLowerExpression } from "./try-lower-expression.js";
 import {
   applyDeferredAssertion,
@@ -241,7 +241,7 @@ export function abstractPropertyDeclOf(
  * Narrowing a ParseArgsToken exposes one anonymous union arm, so its alias
  * identity no longer reaches mapType; declaration ancestry is the stable
  * provenance check. */
-/** The Uint8Array base64/hex prototype methods (ES2026) Node 24 lacks. */
+/** Uint8Array base64/hex prototype members. */
 const UINT8ARRAY_BASE64_METHODS: ReadonlySet<string> = new Set([
   "toBase64",
   "toHex",
@@ -684,6 +684,17 @@ export function lowerPropertyAccessExpr(
     const hostGlobal = hostGlobalNameOfRead(lowerer, expr.expression);
     if (hostGlobal !== null) {
       if (!HOST_GLOBAL_VALUE_MEMBERS.has(expr.name.text)) lowerer.hostGlobalFence(hostGlobal, expr);
+      const value: IrExpr = {
+        kind: "dynKeyGet",
+        value: hostGlobalValue(lowerer, hostGlobal, expr),
+        key: strLit(expr.name.text, loc),
+        type: DYN,
+        loc,
+      };
+      return lowerer.coerceToExpected(
+        value,
+        expr.name.text === "name" ? STRING : expr.name.text === "length" ? F64 : DYN,
+      );
     } else {
       const prototypeOf = hostGlobalPrototypeOf(lowerer, expr.expression);
       if (prototypeOf !== null && !HOST_GLOBAL_PROTOTYPE_MEMBERS.has(expr.name.text))
@@ -723,10 +734,15 @@ export function lowerPropertyAccessExpr(
       return navigatorValue(loc);
     return dynUndefinedExpr(loc);
   }
-  // `Uint8Array.prototype.toBase64` and its siblings, the base64/hex
-  // feature probes libraries such as jose make: the methods are newer
-  // than Node 24, whose Uint8Array prototype answers undefined for them.
-  if (isUint8ArrayBase64Probe(lowerer, expr)) return dynUndefinedExpr(loc);
+  if (isUint8ArrayBase64Probe(lowerer, expr)) {
+    return {
+      kind: "dynKeyGet",
+      value: lowerer.coerceToExpected({ kind: "bytesNew", source: null, type: BYTES_U8, loc }, DYN),
+      key: strLit(expr.name.text, loc),
+      type: DYN,
+      loc,
+    };
+  }
   if (expr.questionDotToken && expr.name.text === "electron") {
     const processProperty = lowerer.lowerProcessProperty(expr);
     if (processProperty) return processProperty;
@@ -1104,6 +1120,11 @@ export function lowerPropertyAccessExpr(
   ) {
     return { kind: "libCall", fn: "webcrypto.object", args: [], type: DYN, loc };
   }
+  if (stdlibGlobalNameOf(lowerer, expr.expression) === "globalThis") {
+    if (expr.name.text === "localStorage") return localStorageValue(lowerer, loc);
+    if (expr.name.text === "sessionStorage")
+      return { kind: "libCall", fn: "global.sessionStorage", args: [], type: DYN, loc };
+  }
   // `globalThis.<name>` that no lowering above claimed
   // (globalThis.SubtleCrypto, globalThis.localStorage
   // — the harness's capability-conditional knownGlobals adds): the
@@ -1121,10 +1142,8 @@ export function lowerPropertyAccessExpr(
     const canonical = stdlibGlobalNameOf(lowerer, expr);
     if (canonical !== null) {
       if (canonical === "globalThis") return lowerGlobalValue(lowerer, expr);
-      // Typed for the programs that name it, absent in Node 24, and the
-      // CommonJS module bindings, which the global object does not hold.
-      if (canonical === TEMPORAL_GLOBAL || COMMONJS_MODULE_BINDINGS.has(canonical))
-        return dynUndefinedExpr(loc);
+      // CommonJS wrapper bindings are not properties of the global object.
+      if (COMMONJS_MODULE_BINDINGS.has(canonical)) return dynUndefinedExpr(loc);
       const value = jsSpecialGlobalValue(lowerer, canonical, loc);
       if (value) return value;
       return (
@@ -1775,6 +1794,19 @@ export function lowerPropertyAccessExpr(
     typedArrayLacksMember(expr.name.text, recvLowered.type.elem === "u8")
   ) {
     return afterReceiver(recvLowered, dynUndefinedExpr(loc), loc);
+  }
+  if (
+    recvLowered.type.kind === "bytes" &&
+    recvLowered.type.elem === "u8" &&
+    UINT8ARRAY_BASE64_METHODS.has(expr.name.text)
+  ) {
+    return {
+      kind: "dynKeyGet",
+      value: lowerer.coerceToExpected(recvLowered, DYN),
+      key: strLit(expr.name.text, loc),
+      type: DYN,
+      loc,
+    };
   }
   // Buffer.prototype's parent and offset getters, which @types/node does not
   // declare (so only JavaScript reads them): the box answers a Buffer's

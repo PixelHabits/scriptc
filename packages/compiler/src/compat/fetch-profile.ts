@@ -165,8 +165,8 @@ function buildFetchCompatProfile() {
   return {
     schemaVersion: 1,
     target: {
-      node: "24.22.1",
-      undici: "7.30.1",
+      node: "26.13.0",
+      undici: "8.12.2",
     },
     requestInit: [
       {
@@ -696,10 +696,11 @@ function buildFetchCompatProfile() {
           "text",
           "json",
           "formData",
+          "textStream",
           "bytes",
           "attribute",
         ].map((member) =>
-          ["blob", "formData", "attribute"].includes(member)
+          ["blob", "formData", "textStream", "attribute"].includes(member)
             ? unsupportedEntry(
                 `stdlib.request.${member}`,
                 "Request",
@@ -734,7 +735,7 @@ function buildFetchCompatProfile() {
         ),
         staticEntry("stdlib.response.arrayBuffer", "Response", "arrayBuffer", "prototype"),
         staticEntry("stdlib.response.clone", "Response", "clone", "prototype"),
-        ...["blob", "formData"].map((member) =>
+        ...["blob", "formData", "textStream"].map((member) =>
           unsupportedEntry(
             `stdlib.response.${member}`,
             "Response",
@@ -942,9 +943,9 @@ function buildFetchCompatProfile() {
 
 let fetchCompatProfile: ReturnType<typeof buildFetchCompatProfile> | undefined;
 
-/** The Node 24 fetch compatibility profile. It is built on the first call,
+/** The Node 26 fetch compatibility profile. It is built on the first call,
  * so runs that do not lower a module do not construct it. */
-export function node24FetchCompatProfile(): ReturnType<typeof buildFetchCompatProfile> {
+export function node26FetchCompatProfile(): ReturnType<typeof buildFetchCompatProfile> {
   fetchCompatProfile ??= buildFetchCompatProfile();
   return fetchCompatProfile;
 }
@@ -967,7 +968,7 @@ let staticFetchMemberSets: StaticFetchMembers | undefined;
 /** The profile's static members as sets, built on the first call. */
 export function staticFetchMembers(): StaticFetchMembers {
   if (staticFetchMemberSets !== undefined) return staticFetchMemberSets;
-  const profile = node24FetchCompatProfile();
+  const profile = node26FetchCompatProfile();
   staticFetchMemberSets = {
     responseReads: new Set(profile.members.responseReads),
     responseCalls: new Set(profile.members.responseCalls),

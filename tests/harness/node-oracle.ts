@@ -1,9 +1,7 @@
-import { createHash } from "node:crypto";
-import { globSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import ts5 from "typescript";
-import { tscJsxOracleEntry, wantsTscJsx } from "./jsx-oracle.js";
+import { tscOracleProgram, wantsTscJsx } from "./jsx-oracle.js";
 
 const cacheDir = join(import.meta.dirname, "../../node_modules/.cache/scriptc-tests");
 const ENTRY_EXTS = ["ts", "js", "mjs", "cjs"];
@@ -62,7 +60,7 @@ export function withoutWarningPid(stderr: Buffer): Buffer {
 
 function wantsTransformTypes(file: string): boolean {
   if (directiveHead(file).some((l) => /^\/\/ @transform-types\s*$/.test(l))) return true;
-  // Enums need Node's transform even without an explicit directive.
+  // Enums need emission even without an explicit directive.
   return programInputs(file).some((f) => /\benum\s+[A-Za-z_$]/.test(readFileSync(f, "utf8")));
 }
 
@@ -70,39 +68,14 @@ function wantsTscDecorators(file: string): boolean {
   return directiveHead(file).some((l) => /^\/\/ @tsc-decorators\s*$/.test(l));
 }
 
-/** The entry and file or directory to ship with it. JSX emits a directory
- * graph; decorators emit one ES2022 module, named for the Windows lane when supplied. */
+/** Transformed graphs and modules travel with the entry to remote lanes. */
 export function nodeOracleProgram(
   file: string,
   { decoratorName }: { decoratorName?: string } = {},
 ): { entry: string; root: string } {
-  if (wantsTscJsx(directiveHead(file))) {
-    const entry = tscJsxOracleEntry(file, cacheDir);
-    return { entry, root: dirname(entry) };
-  }
-  if (!wantsTscDecorators(file))
-    return { entry: file, root: /\/main\.(ts|js|mjs|cjs)$/.test(file) ? dirname(file) : file };
-  const src = readFileSync(file, "utf8");
-  const out = ts5.transpileModule(src, {
-    compilerOptions: { target: ts5.ScriptTarget.ES2022, module: ts5.ModuleKind.ESNext },
-    fileName: file,
-  }).outputText;
-  const key = createHash("sha256")
-    .update(ts5.version)
-    .update("\0")
-    .update(src)
-    .digest("hex")
-    .slice(0, 16);
-  const path =
-    decoratorName === undefined
-      ? join(cacheDir, `dec-oracle-${key}.mjs`)
-      : join(cacheDir, "win-dec-oracle", key, decoratorName);
-  mkdirSync(dirname(path), { recursive: true });
-  // Concurrent suites publish the same content without exposing partial writes.
-  const tmp = `${path}.${process.pid}.tmp`;
-  writeFileSync(tmp, out);
-  renameSync(tmp, path);
-  return { entry: path, root: path };
+  if (wantsTscJsx(directiveHead(file)) || wantsTscDecorators(file) || wantsTransformTypes(file))
+    return tscOracleProgram(file, cacheDir, decoratorName);
+  return { entry: file, root: /\/main\.(ts|js|mjs|cjs)$/.test(file) ? dirname(file) : file };
 }
 
 /** Lanes supply entry and preload paths in the executing host's dialect.
@@ -116,14 +89,11 @@ export function oracleInvocation(
   }: { command?: string; entry?: string; preload?: string[] } = {},
 ): { command: string; args: string[] } {
   const head = directiveHead(file);
-  const transform = wantsTransformTypes(file)
-    ? ["--experimental-transform-types", "--disable-warning=ExperimentalWarning"]
-    : [];
   const nodep = head.some((l) => /^\/\/ @no-deprecation\s*$/.test(l)) ? ["--no-deprecation"] : [];
   const codegen = head.some((l) => /^\/\/ @disallow-code-generation\s*$/.test(l))
     ? ["--disallow-code-generation-from-strings"]
     : [];
   // --import routes CJS throws through ESM and changes their exception origin.
   const shims = head.includes("// @no-node-shims") ? [] : preload;
-  return { command, args: [...transform, ...nodep, ...codegen, ...shims, entry] };
+  return { command, args: [...nodep, ...codegen, ...shims, entry] };
 }

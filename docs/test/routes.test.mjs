@@ -146,12 +146,12 @@ test("compatibility page and data endpoints keep their existing contracts", asyn
   const page = await get("/compatibility");
   assert.equal(page.status, 200);
   const html = await page.text();
-  assert.ok(html.includes("Node.js 24 Compatibility"));
+  assert.ok(html.includes("Node.js 26 Compatibility"));
   assert.ok(html.includes(`<link rel="canonical" href="${siteUrl}/compatibility"`));
   const response = await get("/compatibility/data");
   assert.equal(response.status, 200);
   const dataset = await response.json();
-  const artifact = JSON.parse(await readFile(new URL("../src/generated/node-v24-compatibility.json", import.meta.url), "utf8"));
+  const artifact = JSON.parse(await readFile(new URL("../src/generated/node-v26-compatibility.json", import.meta.url), "utf8"));
   assert.equal(dataset.rows.length, artifact.rows.length);
   // The row count next.config.mjs derives reaches the page (React separates
   // adjacent text nodes with empty comments).

@@ -225,10 +225,10 @@ export class BodyReadable extends EventEmitter {
     });
   }
 
-  __consume(): Promise<Buffer> {
+  __consume(): Promise<Buffer<ArrayBuffer>> {
     if (this.bodyUsed) return Promise.reject(new TypeError("unusable"));
     this.__consuming = true;
-    return new Promise<Buffer>((resolve, reject) => {
+    return new Promise<Buffer<ArrayBuffer>>((resolve, reject) => {
       const chunks: Buffer[] = [];
       let done = false;
       this.on("data", (chunk: Buffer) => {

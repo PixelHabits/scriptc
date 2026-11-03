@@ -15,18 +15,13 @@ void scr_crypto_random_bytes_async(double size, ScrClosure *cb, ScrCryptoBytesFn
 void scr_crypto_pbkdf2_async(ScrBytes *password, ScrBytes *salt,
                              double iterations, double keylen, ScrStr *digest,
                              ScrClosure *cb, ScrCryptoBytesFn fn) {
-  const char *failure;
+  ScrError *failure;
   ScrBytes *value = scr_crypto_pbkdf2_job(password, salt, iterations, keylen, digest, &failure);
   if (scr_exc_pending()) {
     scr_closure_release(cb);
     return;
   }
-  if (failure) {
-    ScrStr *message = scr_str_new(failure, strlen(failure));
-    ScrError *error = scr_error_new(SCR_ERR_ERROR, message);
-    scr_str_release(message);
-    scr_crypto_defer_bytes(NULL, error, cb, fn);
-  } else scr_crypto_defer_bytes(value, NULL, cb, fn);
+  scr_crypto_defer_bytes(value, failure, cb, fn);
 }
 
 void scr_crypto_hkdf_async(ScrStr *digest, ScrBytes *ikm, ScrBytes *salt,
@@ -35,10 +30,7 @@ void scr_crypto_hkdf_async(ScrStr *digest, ScrBytes *ikm, ScrBytes *salt,
   if (scr_exc_pending()) { scr_closure_release(cb); return; }
   if (value->len == 0) {
     scr_bytes_release(value);
-    ScrStr *message = scr_str_new("Deriving bits failed", 20);
-    ScrError *error = scr_error_new(SCR_ERR_ERROR, message);
-    scr_str_release(message);
-    scr_crypto_defer_bytes(NULL, error, cb, fn);
+    scr_crypto_defer_bytes(NULL, scr_crypto_hkdf_failure(), cb, fn);
   } else scr_crypto_defer_bytes(value, NULL, cb, fn);
 }
 

@@ -44,7 +44,7 @@ try { set(target, [21, failing], 2); }
 catch (e) { console.log("partial", e.message, dump(target)); }
 try { from([failing]); } catch (e) { console.log("from-hook-error", e.message); }
 
-// Node's from fast path and array-like reads interleave element conversion.
+// TypedArray.from snapshots iterable values before conversion; array-like reads interleave it.
 /** @type {any} */
 const array = [converted, 7];
 const changing = { valueOf() { array[1] = 9; return 1; } };

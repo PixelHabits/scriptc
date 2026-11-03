@@ -545,7 +545,7 @@ export function emitStreamLibCall(host: LlvmEmitterContext, e: LibCallExpr): LlV
   }
   if (e.fn === "stream.destroy" || e.fn === "stream.iteratorClose") {
     const args = e.args.map((a) => host.emitExpr(a));
-    const sym = e.fn === "stream.destroy" ? "scr_stream_destroy" : "scr_stream_iterator_close";
+    const sym = e.fn === "stream.destroy" ? "scr_stream_destroy" : "scr_stream_iterator_return";
     host.declare(`declare ptr @${sym}(ptr${e.fn === "stream.destroy" ? ", ptr" : ""})`);
     const t = B.tmp();
     B.line(

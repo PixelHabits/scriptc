@@ -1,6 +1,7 @@
+// @normalize-pid
 // Hash and Hmac data handling: input encodings, views, invalid data,
 // output encodings, crypto.hash's string and options forms, createHmac's
-// keys and options, and the cSHAKE options, which Node 24.22 validates
+// keys and options, and the cSHAKE options, which Node validates
 // and then refuses.
 import { createHash, createHmac, hash } from "node:crypto";
 

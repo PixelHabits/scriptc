@@ -1,8 +1,8 @@
 /* scriptc runtime — crypto.getCipherInfo(nameOrNid[, options]) over the
  * table Node's OpenSSL ciphers generate (scr_cipher_info.h): cipher.js's
  * argument checks, then GetCipherInfo's keyLength and ivLength rules and
- * its info object, in Node's key order. Names match case-insensitively;
- * nids are OpenSSL's. Arguments are borrowed. */
+ * its null-prototype info object. Names match case-insensitively; nids
+ * are OpenSSL's. Arguments are borrowed. */
 #include "scr_runtime.h"
 
 #include <math.h>
@@ -14,20 +14,20 @@
 
 #define CI_COUNT(table) (sizeof(table) / sizeof((table)[0]))
 
-/* validateInt32(value, name): false with Node's error pending. */
-static bool ci_validate_int32(const char *name, const ScrDyn *value) {
+/* validateUint32(value, name): false with Node's error pending. */
+static bool ci_validate_uint32(const char *name, const ScrDyn *value) {
   if (value->kind != SCR_DYN_NUM) {
     scr_dyn_arg_type_fail(name, "of type number", value);
     return false;
   }
   double v = value->v.num;
   bool integer = isfinite(v) && trunc(v) == v;
-  if (integer && v >= INT32_MIN && v <= INT32_MAX) return true;
+  if (integer && v >= 0 && v <= UINT32_MAX) return true;
   char received[48];
   scr_num_received(v, received);
   char text[192];
   int n = integer ? snprintf(text, sizeof text,
-                             "The value of \"%s\" is out of range. It must be >= -2147483648 && <= 2147483647. "
+                             "The value of \"%s\" is out of range. It must be >= 0 && <= 4294967295. "
                              "Received %s",
                              name, received)
                   : snprintf(text, sizeof text,
@@ -79,7 +79,7 @@ static const ScCipherInfo *ci_by_nid(double nid) {
  * legacy provider's) answers undefined for either; keyLength must equal
  * the cipher's; ivLength must equal its IV length, or lie in 7 to 13 for
  * CCM and 1 to 15 for OCB, and GCM takes any. */
-static bool ci_accepts(const ScCipherInfo *info, bool has_key, int key, bool has_iv, int iv) {
+static bool ci_accepts(const ScCipherInfo *info, bool has_key, double key, bool has_iv, double iv) {
   if ((has_key || has_iv) && (info->key_rule == SC_INFO_NONE || info->iv_rule == SC_INFO_NONE)) return false;
   if (has_key && key != info->key_length) return false;
   if (!has_iv) return true;
@@ -91,27 +91,35 @@ static bool ci_accepts(const ScCipherInfo *info, bool has_key, int key, bool has
   }
 }
 
+/* A string field, or undefined when `text` is NULL. */
 static void ci_set_str(ScrDyn *obj, const char *key, const char *text) {
-  ScrStr *s = scr_str_new(text, strlen(text));
-  ScrDyn *v = scr_dyn_new_str(s);
-  scr_str_release(s);
+  ScrDyn *v;
+  if (text) {
+    ScrStr *s = scr_str_new(text, strlen(text));
+    v = scr_dyn_new_str(s);
+    scr_str_release(s);
+  } else {
+    v = scr_dyn_retain((ScrDyn *)scr_dyn_undefined());
+  }
   scr_dyn_obj_set(obj, key, strlen(key), v);
 }
 
-static void ci_set_num(ScrDyn *obj, const char *key, double value) {
-  scr_dyn_obj_set(obj, key, strlen(key), scr_dyn_new_num(value));
+/* A number field, or undefined when `present` is false. */
+static void ci_set_num(ScrDyn *obj, const char *key, bool present, double value) {
+  ScrDyn *v = present ? scr_dyn_new_num(value) : scr_dyn_retain((ScrDyn *)scr_dyn_undefined());
+  scr_dyn_obj_set(obj, key, strlen(key), v);
 }
 
-/* The info object: mode, name, nid, blockSize (not for stream ciphers),
- * ivLength (not when it is 0) and keyLength. */
-static ScrDyn *ci_object(const ScCipherInfo *info, int iv) {
-  ScrDyn *obj = scr_dyn_new_obj();
-  if (info->mode) ci_set_str(obj, "mode", info->mode);
+/* The info object has every key, in this order; a stream cipher's
+ * blockSize, an IV length of 0, and a missing nid are undefined. */
+static ScrDyn *ci_object(const ScCipherInfo *info, double iv) {
+  ScrDyn *obj = scr_dyn_new_obj_null_proto();
+  ci_set_str(obj, "mode", info->mode);
   ci_set_str(obj, "name", info->name);
-  if (info->nid >= 0) ci_set_num(obj, "nid", info->nid);
-  if (info->block_size >= 0) ci_set_num(obj, "blockSize", info->block_size);
-  if (iv > 0) ci_set_num(obj, "ivLength", iv);
-  ci_set_num(obj, "keyLength", info->key_length);
+  ci_set_num(obj, "nid", info->nid >= 0, info->nid);
+  ci_set_num(obj, "keyLength", true, info->key_length);
+  ci_set_num(obj, "blockSize", info->block_size >= 0, info->block_size);
+  ci_set_num(obj, "ivLength", iv > 0, iv);
   return obj;
 }
 
@@ -138,14 +146,11 @@ static ScrDyn *ci_option(const ScrDyn *options, const char *key) {
   return scr_dyn_retain((ScrDyn *)scr_dyn_undefined());
 }
 
+/* Options are checked first; a nid that is not an integer from 1 to
+ * 2^31-1 finds no cipher. */
 static ScrDyn *ci_get(const ScrDyn *name_or_nid, const ScrDyn *options, bool class_option) {
-  if (name_or_nid->kind != SCR_DYN_STR && name_or_nid->kind != SCR_DYN_NUM) {
-    scr_dyn_arg_type_fail("nameOrNid", "one of type string or number", name_or_nid);
-    return NULL;
-  }
-  if (name_or_nid->kind == SCR_DYN_NUM && !ci_validate_int32("nameOrNid", name_or_nid)) return NULL;
   bool has_key = false, has_iv = false;
-  int key = 0, iv = 0;
+  double key = 0, iv = 0;
   if (options->kind != SCR_DYN_UNDEF) {
     ScrStr *type = scr_dyn_typeof(options);
     bool object = type->len == 6 && memcmp(type->data, "object", 6) == 0;
@@ -170,21 +175,29 @@ static ScrDyn *ci_get(const ScrDyn *name_or_nid, const ScrDyn *options, bool cla
     }
     bool ok = true;
     if (key_value->kind != SCR_DYN_UNDEF) {
-      ok = ci_validate_int32("options.keyLength", key_value);
+      ok = ci_validate_uint32("options.keyLength", key_value);
       has_key = true;
-      key = ok ? (int)key_value->v.num : 0;
+      key = ok ? key_value->v.num + 0 : 0;
     }
     if (ok && iv_value->kind != SCR_DYN_UNDEF) {
-      ok = ci_validate_int32("options.ivLength", iv_value);
+      ok = ci_validate_uint32("options.ivLength", iv_value);
       has_iv = true;
-      iv = ok ? (int)iv_value->v.num : 0;
+      iv = ok ? iv_value->v.num + 0 : 0;
     }
     scr_dyn_release(key_value);
     scr_dyn_release(iv_value);
     if (!ok) return NULL;
   }
-  const ScCipherInfo *info =
-    name_or_nid->kind == SCR_DYN_STR ? ci_by_name(name_or_nid->v.str) : ci_by_nid(name_or_nid->v.num);
+  const ScCipherInfo *info = NULL;
+  if (name_or_nid->kind == SCR_DYN_STR) {
+    info = ci_by_name(name_or_nid->v.str);
+  } else if (name_or_nid->kind == SCR_DYN_NUM) {
+    double nid = name_or_nid->v.num;
+    if (isfinite(nid) && trunc(nid) == nid && nid >= 1 && nid <= INT32_MAX) info = ci_by_nid(nid);
+  } else {
+    scr_dyn_arg_type_fail("nameOrNid", "one of type string or number", name_or_nid);
+    return NULL;
+  }
   if (!info || !ci_accepts(info, has_key, key, has_iv, iv)) return scr_dyn_retain((ScrDyn *)scr_dyn_undefined());
   return ci_object(info, has_iv ? iv : info->iv_length);
 }

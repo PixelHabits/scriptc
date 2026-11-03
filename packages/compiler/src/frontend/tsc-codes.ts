@@ -477,13 +477,7 @@ const OPINION_ROWS: readonly (readonly [number, Opinion])[] = [
       ]),
     ),
   ],
-  [
-    2305,
-    CHECKER(DYNAMIC_SHAPE, [
-      "tests/corpus/6431-cjs-exports-rebinding/main.cjs",
-      "tests/corpus/buffer-slowbuffer.cjs",
-    ]),
-  ],
+  [2305, CHECKER(DYNAMIC_SHAPE, ["tests/corpus/6431-cjs-exports-rebinding/main.cjs"])],
   [
     2551,
     CHECKER(DYNAMIC_SHAPE, [

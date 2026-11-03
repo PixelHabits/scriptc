@@ -61,7 +61,7 @@ beforeAll(async () => {
   ]);
 }, 120_000);
 
-// Runs against the committed case file, generated from Node v24 itself
+// Runs against the committed case file, generated from the pinned Node release
 // (gen-url-legacy-cases.mjs): curated domains (IDNA mapping, Punycode,
 // ContextJ and bidi rules, IPv4 and IPv6 hosts), legacy URLs (hosts,
 // auth, ports, backslashes, whitespace, autoEscape, IPv6, IDNA hostnames,

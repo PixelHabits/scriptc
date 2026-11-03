@@ -8,7 +8,7 @@ import { calls, quadruple } from "native-wrapper";
 
 function libnodeMapped(): boolean {
   if (!existsSync("/proc/self/maps")) return false;
-  return readFileSync("/proc/self/maps", "utf8").includes("libnode");
+  return readFileSync("/proc/self/maps", "utf8").includes("/libnode.so.");
 }
 
 console.log("before first use, libnode mapped:", libnodeMapped());

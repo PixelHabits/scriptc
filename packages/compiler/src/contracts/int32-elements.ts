@@ -340,9 +340,15 @@ export class Int32ElementContracts {
       else if (
         e.kind === "arrIntrinsic" &&
         isRef(e.receiver, source) &&
-        ["length", "nextPresent", "sortValues", "sortDense", "reverse", "copyWithin"].includes(
-          e.method,
-        )
+        [
+          "length",
+          "nextPresent",
+          "sortValues",
+          "sortValuesCopy",
+          "sortDense",
+          "reverse",
+          "copyWithin",
+        ].includes(e.method)
       )
         allowed.add(e.receiver);
       else if (e.kind === "varRef" && e.localId === source && !allowed.has(e)) ok = false;

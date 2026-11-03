@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   hc.headers.set("x-b", "3");
   console.log("headers", h.headers.get("x-b"), hc.headers.get("x-b"), h.headers === hc.headers);
 
-  // A pulled source: both branches see each chunk (the same object).
+  // A pulled source: both branches see each chunk with separate byte storage.
   let n = 0;
   const source: any = new ReadableStream({
     start(): void {

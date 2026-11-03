@@ -1,8 +1,4 @@
-// Genuine absent-capability probes keep answering "undefined": Node 24 has
-// no Bun, Deno or HostEventStream, so the read is exact. The host-global
-// refusal (SC2020) names only globals Node really has; a program's own
-// binding of such a name stays the program's, and dynamic keys still read
-// the global object at run time.
+// Host capability probes distinguish absent names from Temporal.
 declare const Bun: { readonly version?: string } | undefined;
 declare const Deno: { readonly version: { deno: string } } | undefined;
 declare const HostEventStream: unknown;

@@ -808,14 +808,7 @@ function eluHelperOf(lowerer: Lowerer, arity: number, recT: IrType & { kind: "re
   } else {
     body.push(
       decl("idle.0", { kind: "libCall", fn: "perf.idleTime", args: [], type: F64, loc }),
-      decl(
-        "active.0",
-        bin(
-          "-",
-          bin("-", { kind: "libCall", fn: "perf.now", args: [], type: F64, loc }, ref("ls.0")),
-          ref("idle.0"),
-        ),
-      ),
+      decl("active.0", { kind: "libCall", fn: "perf.activeTime", args: [], type: F64, loc }),
       arity === 0
         ? result(ref("idle.0"), ref("active.0"))
         : result(

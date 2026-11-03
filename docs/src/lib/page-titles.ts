@@ -12,7 +12,7 @@ export const PAGE_TITLES: Record<string, string> = {
   experimental: "Experimental APIs",
   wasm: "WebAssembly Modules",
   platforms: "Platform Support",
-  compatibility: "Node.js 24 Compatibility",
+  compatibility: "Node.js 26 Compatibility",
   "how-it-works": "How It Works",
   limitations: "Limitations",
 };

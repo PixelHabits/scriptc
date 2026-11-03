@@ -147,6 +147,7 @@ struct SfStream {
   bool pull_again;
   bool discarded;
   bool request_discarding;
+  bool upload_release_pending;
   /* A zero high-water mark (a TransformStream's readable side): pull only
    * while a read is pending. */
   bool hwm_zero;
@@ -804,9 +805,32 @@ static void sf_stream_untrack_callbacks(SfStream *s) {
   s->callbacks_next = NULL;
 }
 
+#ifdef SCR_HANDLE_CLASSES
+static void sf_stream_gcfree(void *ptr);
+
+static void sf_stream_trace(void *ptr, ScrTraceVisit visit, void *ctx) {
+  SfStream *s = ptr;
+  if (s->web_reader) visit(s->web_reader, ctx);
+  if (s->web_view) visit(s->web_view, ctx);
+  if (s->web_view_lock) visit(s->web_view_lock, ctx);
+  if (s->reader) {
+    for (SfReadRequest *q = s->reader->pending_head; q; q = q->next) {
+      if (q->sink && q->sink->traced) visit(q->sink_ctx, ctx);
+    }
+  }
+}
+
+static ScrCycType sf_stream_cyc_type = {
+    sf_stream_trace, sf_stream_gcfree, SCR_CYC_KIND_NONE, 0};
+#endif
+
 static SfStream *sf_stream_new_native(void) {
+#ifdef SCR_HANDLE_CLASSES
+  SfStream *s = scr_cyc_alloc(sizeof *s, &sf_stream_cyc_type);
+#else
   SfStream *s = calloc(1, sizeof *s);
   if (!s) sf_oom();
+#endif
   s->rc = 1;
   s->started = true;
   return s;
@@ -831,6 +855,22 @@ static SfReadRequest *sf_reader_take_request(SfReader *r) {
   return request;
 }
 
+static void sf_reader_discard_reads(SfReader *r, void *ctx) {
+  SfReadRequest **at = &r->pending_head;
+  r->pending_tail = NULL;
+  while (*at) {
+    SfReadRequest *q = *at;
+    if (q->sink && q->sink_ctx == ctx) {
+      *at = q->next;
+      if (q->sink->release) q->sink->release(q->sink_ctx);
+      free(q);
+    } else {
+      r->pending_tail = q;
+      at = &q->next;
+    }
+  }
+}
+
 static void sf_reader_reject_message_all(SfReader *r, const char *message) {
   SfReadRequest *request;
   while ((request = sf_reader_take_request(r)) != NULL) {
@@ -846,9 +886,21 @@ static void sf_reader_reject_message_all(SfReader *r, const char *message) {
   }
 }
 
+/* Destruction abandons reads; only an explicit releaseLock rejects them.
+ * A pending promise can outlive its unreachable stream and stay pending. */
+static void sf_reader_drop_requests(SfReader *r, bool gc) {
+  SfReadRequest *request;
+  while ((request = sf_reader_take_request(r)) != NULL) {
+    scr_promise_release(request->promise);
+    if (request->sink && request->sink->release && (!gc || !request->sink->traced))
+      request->sink->release(request->sink_ctx);
+    free(request);
+  }
+}
+
 static void sf_reader_release(SfReader *r) {
   if (!r || --r->rc > 0) return;
-  sf_reader_reject_message_all(r, "ReadableStream was released");
+  sf_reader_drop_requests(r, false);
   scr_promise_release(r->closed);
   free(r);
 }
@@ -930,6 +982,47 @@ static void sf_stream_drop_source_callbacks(
   scr_dyn_release(source_this);
 }
 
+static void sf_stream_destroy(SfStream *s, bool gc) {
+  scr_weak_dispose_inline(s);
+  sf_stream_drop_chunks(s);
+  if (s->reader) {
+    s->reader->stream = NULL;
+    sf_reader_drop_requests(s->reader, gc);
+    sf_reader_release(s->reader);
+    s->reader = NULL;
+  }
+  scr_dyn_release(s->error);
+  sf_stream_drop_source_callbacks(s, true);
+  scr_dyn_release(s->from_dyn);
+#ifdef SCR_HANDLE_CLASSES
+  if (!gc) {
+    scr_dyn_release(s->web_reader);
+    scr_dyn_release(s->web_view_lock);
+    scr_dyn_release(s->web_view);
+  }
+#endif
+  scr_arr_release(s->from_array);
+  scr_bytes_release(s->from_bytes);
+  scr_str_release(s->from_string);
+  while (s->typed_refs) {
+    SfTypedRef *ref = s->typed_refs;
+    s->typed_refs = ref->next;
+    scr_dyn_release(ref->value);
+    free(ref);
+  }
+#ifdef SCR_HANDLE_CLASSES
+  scr_cyc_free(s);
+#else
+  free(s);
+#endif
+}
+
+#ifdef SCR_HANDLE_CLASSES
+static void sf_stream_gcfree(void *ptr) {
+  sf_stream_destroy(ptr, true);
+}
+#endif
+
 static void sf_stream_release(SfStream *s) {
   if (!s) return;
   if (--s->rc > 0) {
@@ -947,35 +1040,19 @@ static void sf_stream_release(SfStream *s) {
       return;
     }
 #endif
+#ifdef SCR_HANDLE_CLASSES
+    if (!s->response_owner) {
+      scr_cyc_released(s);
+      return;
+    }
+#endif
     sf_response_discard_if_unobserved(s);
     return;
   }
-  scr_weak_dispose_inline(s);
-  sf_stream_drop_chunks(s);
-  if (s->reader) {
-    s->reader->stream = NULL;
-    sf_reader_reject_message_all(s->reader, "ReadableStream was released");
-    sf_reader_release(s->reader);
-    s->reader = NULL;
-  }
-  scr_dyn_release(s->error);
-  sf_stream_drop_source_callbacks(s, true);
-  scr_dyn_release(s->from_dyn);
 #ifdef SCR_HANDLE_CLASSES
-  scr_dyn_release(s->web_reader);
-  scr_dyn_release(s->web_view_lock);
-  scr_dyn_release(s->web_view);
+  scr_cyc_dead(s);
 #endif
-  scr_arr_release(s->from_array);
-  scr_bytes_release(s->from_bytes);
-  scr_str_release(s->from_string);
-  while (s->typed_refs) {
-    SfTypedRef *ref = s->typed_refs;
-    s->typed_refs = ref->next;
-    scr_dyn_release(ref->value);
-    free(ref);
-  }
-  free(s);
+  sf_stream_destroy(s, false);
 }
 
 static void *sf_stream_retain_v(void *p) {
@@ -1030,10 +1107,10 @@ static ScrBytes *sf_chunk_bytes(const ScrDyn *chunk) {
 
 static ScrDyn *sf_read_result(bool done, ScrDyn *value) {
   ScrDyn *result = scr_dyn_new_obj();
+  scr_dyn_obj_set(result, "done", 4, scr_dyn_new_bool(done));
   scr_dyn_obj_set(result, "value", 5,
                   value ? scr_dyn_retain(value)
                         : scr_dyn_retain(scr_dyn_undefined()));
-  scr_dyn_obj_set(result, "done", 4, scr_dyn_new_bool(done));
   return result;
 }
 
@@ -1189,6 +1266,23 @@ static void sf_response_resume_if_ready(SfStream *s) {
   scr_net_sock_release(scr_net_sock_resume(t->response_socket));
 }
 
+static void sf_stream_finish_upload(SfStream *s) {
+  s->internal_lock = false;
+#ifdef SCR_HANDLE_CLASSES
+  /* A pending read keeps its sink and reader until it answers. */
+  s->upload_release_pending = s->web_reader && s->pulling;
+  if (s->upload_release_pending) return;
+  ScrDyn *reader = s->web_reader;
+  s->web_reader = NULL;
+  if (reader) {
+    ScrDyn *released = scr_dyn_invoke(reader, "releaseLock", NULL, 0,
+                                     "ReadableStreamDefaultReader.releaseLock");
+    scr_dyn_release(released);
+    scr_dyn_release(reader);
+  }
+#endif
+}
+
 static void sf_stream_finish_close(SfStream *s) {
   if (!s->close_requested || s->head || s->closed || s->error) return;
   s->closed = true;
@@ -1202,11 +1296,14 @@ static void sf_stream_drain(SfStream *s) {
     return;
   }
   if (s->request_discarding) {
-    /* Fetch keeps a reader attached to an upload body after aborting the
-     * transfer. Its chunks are no longer written, but demand continues
-     * until the source closes/errors; notably, source.cancel is not run. */
+    /* An aborted upload keeps reading until the source closes/errors,
+     * without calling source.cancel. */
     sf_stream_drop_chunks(s);
     sf_stream_finish_close(s);
+    if (s->closed || s->error) {
+      s->request_discarding = false;
+      sf_stream_finish_upload(s);
+    }
     return;
   }
   if (s->collector) {
@@ -1630,6 +1727,7 @@ static void sf_web_close(void *ctx) {
   SfStream *s = ctx;
   s->pulling = false;
   sf_stream_close(s);
+  if (s->upload_release_pending) sf_stream_finish_upload(s);
   sf_stream_release(s);
 }
 
@@ -1637,11 +1735,15 @@ static void sf_web_error(void *ctx, ScrDyn *reason) {
   SfStream *s = ctx;
   s->pulling = false;
   sf_stream_error(s, reason ? reason : scr_dyn_undefined());
+  if (s->upload_release_pending) sf_stream_finish_upload(s);
   sf_stream_release(s);
 }
 
-static const ScrFetchReadSink sf_web_sink = {sf_web_chunk, sf_web_close, sf_web_error};
+static const ScrFetchReadSink sf_web_sink = {
+    sf_web_chunk, sf_web_close, sf_web_error, sf_stream_release_v, true};
 
+/* The queued sink owns the adapter. Both sides trace the read/reader
+ * cycle so an unreachable, unfinished pull can be collected. */
 static void sf_stream_pull_from_web(SfStream *s) {
   s->pulling = true;
   sf_stream_retain(s);
@@ -1710,7 +1812,8 @@ static void sf_view_release(void *ctx) {
   sf_stream_release(s);
 }
 
-static const ScrWebStreamSource sf_view_source = {sf_view_read_into, sf_view_cancel, sf_view_release};
+static const ScrWebStreamSource sf_view_source = {
+    sf_view_read_into, sf_view_cancel, sf_view_release};
 
 /* The web ReadableStream the stream's checked-dynamic handles stand for
  * (borrowed), made on first use. Node's Response.body is one; the fetch
@@ -1862,6 +1965,11 @@ static void sf_stream_pull_complete_task(ScrClosure *cb) {
   SfStream *s = (SfStream *)scr_box_get_ref(cb->caps[0]);
   if (!s) return;
   s->pulling = false;
+  if (s->upload_release_pending) {
+    sf_stream_finish_upload(s);
+    sf_stream_release(s);
+    return;
+  }
   bool again = s->pull_again;
   s->pull_again = false;
   if (again && !s->close_requested && !s->closed && !s->error) {
@@ -2194,8 +2302,8 @@ static ScrPromise *sf_stream_collect(SfStream *s, int mode) {
  * reasons. Response.clone and Request.clone use it (undici's cloneBody).
  *
  * Ownership: the tee owns the source, its reader and both branches; each
- * branch's callbacks and every pending read own the tee. Closing, erroring
- * or canceling a branch drops its callbacks (sf_stream_drop_source_callbacks),
+ * branch's callbacks own the tee. Pending reads borrow it and are removed
+ * when the tee is destroyed. Closing, erroring or canceling a branch drops its callbacks (sf_stream_drop_source_callbacks),
  * and fetch teardown drops the callbacks of branches nobody finished.
  */
 typedef struct SfTee {
@@ -2221,6 +2329,7 @@ static void sf_tee_release(SfTee *t) {
     t->source->error_watch = NULL;
     t->source->error_watch_ctx = NULL;
   }
+  sf_reader_discard_reads(t->reader, t);
   sf_stream_release(t->branch[0]);
   sf_stream_release(t->branch[1]);
   sf_reader_release(t->reader);
@@ -2248,15 +2357,17 @@ static void sf_tee_chunk_task(ScrClosure *cb) {
   SfTee *t = (SfTee *)scr_box_get_ref(cb->caps[0]);
   ScrDyn *chunk = (ScrDyn *)scr_box_get_ref(cb->caps[1]);
   t->read_again = false;
-  for (int i = 0; i < 2; i++) {
+  ScrDyn *copy = !t->canceled[1] ? scr_structured_clone(chunk, scr_dyn_undefined()) : scr_dyn_retain(chunk);
+  for (int i = 0; copy && i < 2; i++) {
     if (t->canceled[i]) continue;
     SfStream *b = t->branch[i];
     if (b->close_requested || b->closed || b->error) continue;
-    sf_stream_enqueue_value(b, chunk);
-    if (scr_exc_pending()) scr_exc_clear();
+    sf_stream_enqueue_value(b, i == 1 ? copy : chunk);
+    if (scr_exc_pending()) break;
   }
+  scr_dyn_release(copy);
   t->reading = false;
-  if (t->read_again) sf_tee_pull(t);
+  if (t->read_again && !scr_exc_pending()) sf_tee_pull(t);
   scr_dyn_release(chunk);
   sf_tee_release(t);
 }
@@ -2268,11 +2379,10 @@ static void sf_tee_sink_chunk(void *ctx, ScrDyn *value) {
   cb->caps[1] = scr_box_new_obj(&scr_dyn_retain_v, &scr_dyn_release_v, NULL);
   scr_box_set_ref(cb->caps[1], scr_dyn_retain(value));
   scr_queue_microtask(cb);
-  sf_tee_release(t); /* the read request's reference */
 }
 
 static void sf_tee_sink_close(void *ctx) {
-  SfTee *t = ctx;
+  SfTee *t = sf_tee_retain(ctx);
   t->reading = false;
   for (int i = 0; i < 2; i++) {
     if (!t->canceled[i]) sf_stream_close(t->branch[i]);
@@ -2314,7 +2424,6 @@ static void sf_tee_sink_error(void *ctx, ScrDyn *reason) {
   (void)reason;
   SfTee *t = ctx;
   t->reading = false;
-  sf_tee_release(t);
 }
 
 static const ScrFetchReadSink sf_tee_sink = {
@@ -2326,11 +2435,9 @@ static void sf_tee_pull(SfTee *t) {
     return;
   }
   t->reading = true;
-  sf_tee_retain(t); /* owned by the read request */
   if (!sf_reader_read_request(t->reader, NULL, &sf_tee_sink, t)) {
     scr_exc_clear();
     t->reading = false;
-    sf_tee_release(t);
   }
 }
 
@@ -2579,6 +2686,16 @@ bool scr_fetch_reader_read_into(ScrDyn *reader, const ScrFetchReadSink *sink, vo
     return false;
   }
   return sf_reader_read_request((SfReader *)reader->v.handle.ptr, NULL, sink, ctx);
+}
+
+void scr_fetch_reader_discard_reads(ScrDyn *reader, void *ctx) {
+#ifdef SCR_HANDLE_CLASSES
+  if (reader->v.handle.tag == SCR_DYNH_WS_READER) {
+    scr_web_stream_bridge->reader_discard_reads(reader, ctx);
+    return;
+  }
+#endif
+  sf_reader_discard_reads((SfReader *)reader->v.handle.ptr, ctx);
 }
 
 ScrPromise *scr_fetch_reader_read(ScrDyn *reader) {
@@ -4300,7 +4417,7 @@ static SfResponse *sf_response_clone(SfResponse *r, const char *unusable) {
   /* A body with a web view tees through it; each side reads one branch. */
   SfStream *viewed[2] = {NULL, NULL};
   if (!r->null_body && r->body->web_view) {
-    ScrDyn *branches = scr_dyn_invoke(r->body->web_view, "tee", NULL, 0, "ReadableStream.tee");
+    ScrDyn *branches = scr_web_stream_bridge->clone_body(r->body->web_view);
     if (!branches) return NULL;
     for (int i = 0; i < 2; i++) {
       ScrDyn *reading = sf_web_body(branches->v.arr.items[i]);
@@ -4500,6 +4617,9 @@ static void sf_settle(SfTransfer *t) {
   }
   if (t->request_stream && t->request_stream->request_owner == t) {
     t->request_stream->request_owner = NULL;
+  }
+  if (t->request_stream && !t->request_stream->request_discarding) {
+    sf_stream_finish_upload(t->request_stream);
   }
   if (t->response_stream && t->response_stream->response_owner == t) {
     t->response_stream->response_owner = NULL;
@@ -4721,19 +4841,16 @@ static int sf_hex_value(char c) {
   return -1;
 }
 
-/* EnvHttpProxyAgent sends Basic proxy authentication only when the proxy
- * URL has both a username and a password. */
+/* Proxy authentication accepts a username with an empty password. */
 static bool sf_proxy_has_credentials(const ScrStr *userinfo) {
-  const char *colon = memchr(userinfo->data, ':', userinfo->len);
-  return colon != NULL && colon != userinfo->data &&
-         colon + 1 < userinfo->data + userinfo->len;
+  return userinfo->len > 0 && userinfo->data[0] != ':';
 }
 
 /* EnvHttpProxyAgent derives Basic proxy authentication from the proxy URL's
  * decoded username/password. ScrUrl keeps the encoded userinfo as one string,
  * so decode it here. */
 static ScrStr *sf_proxy_authorization(const ScrStr *userinfo) {
-  char *plain = malloc(userinfo->len + 1);
+  char *plain = malloc(userinfo->len + 2);
   if (!plain) sf_oom();
   size_t plain_len = 0;
   for (size_t i = 0; i < userinfo->len;) {
@@ -4750,6 +4867,7 @@ static ScrStr *sf_proxy_authorization(const ScrStr *userinfo) {
     plain[plain_len++] = c;
     i++;
   }
+  if (!memchr(userinfo->data, ':', userinfo->len)) plain[plain_len++] = ':';
 
   static const char b64[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -5589,6 +5707,7 @@ static void sf_stream_request_flush(SfStream *s) {
       return;
     }
     sf_stream_finish_close(s);
+    sf_stream_finish_upload(s);
     scr_http_client_end(t->client);
   }
 }
@@ -5851,6 +5970,10 @@ static void sf_on_response(ScrClosure *cb, ScrHttpReq *res) {
       if (t->redirect_mode == SF_REDIRECT_MANUAL) {
         scr_str_release(location);
       } else {
+        if (t->request_stream) {
+          t->request_stream->request_owner = NULL;
+          sf_stream_finish_upload(t->request_stream);
+        }
         ScrHttpClientReq *old = t->client;
         t->client = NULL;
         if (old) {
@@ -6228,9 +6351,8 @@ static bool sf_start_hop(SfTransfer *t) {
     sf_reject(t, "fetch failed");
     return false;
   }
-  /* A proxy carries every request through a CONNECT tunnel, as undici's
-   * ProxyAgent does; an https:// proxy runs the tunnel inside a TLS
-   * session to the proxy. */
+  /* HTTP requests use absolute-form targets at the proxy; HTTPS requests
+   * use CONNECT, with TLS to the proxy when its URL is https. */
   size_t user_len = (size_t)scr_arr_len(t->headers);
   ScrArr *headers = scr_arr_new(SCR_ELEM_STR, user_len + 16);
 
@@ -6321,23 +6443,37 @@ static bool sf_start_hop(SfTransfer *t) {
       sf_bare_host(proxy ? proxy->host : url->host);
   ScrStr *dial = scr_net_blocking_lookup(bare);
   ScrStr *path = sf_path(url);
+  if (proxy && !https) {
+    ScrJsonBuf target;
+    scr_jb_init(&target);
+    scr_jb_puts(&target, "http://");
+    scr_jb_puts(&target, authority);
+    scr_jb_put_str(&target, path);
+    scr_str_release(path);
+    path = scr_jb_finish(&target);
+    if (sf_proxy_has_credentials(proxy->userinfo)) {
+      ScrStr *auth = sf_proxy_authorization(proxy->userinfo);
+      sf_push_header_text(headers, "proxy-authorization", auth->data, auth->len);
+      scr_str_release(auth);
+    }
+  }
   int dial_port =
       proxy ? sf_port(proxy, proxy_https ? 443 : 80) : port;
   ScrStr *sni = https ? sf_bare_host(url->host) : NULL;
   void (*wrap)(ScrNetSocket *, void *) = NULL;
   void *wrap_ctx = NULL;
-  if (proxy_https) {
+  if (proxy_https && https) {
     size_t head_len = 0;
     char *head = sf_tunnel_head(url, port, authority, (size_t)authority_len, proxy, &head_len);
     wrap_ctx = scr_tls_fetch_tunnel_ctx(bare, sni, head, head_len);
     wrap = &scr_tls_fetch_tunnel_wrap;
     free(head);
-  } else if (proxy_http) {
+  } else if (proxy_http && https) {
     void *tls_ctx = sni ? scr_tls_fetch_client_ctx(sni, true) : NULL;
     wrap_ctx = sf_tunnel_new(url, port, authority, (size_t)authority_len, proxy, tls_ctx);
     wrap = &sf_tunnel_wrap;
-  } else if (sni) {
-    wrap_ctx = scr_tls_fetch_client_ctx(sni, true);
+  } else if (proxy_https || sni) {
+    wrap_ctx = scr_tls_fetch_client_ctx(proxy_https ? bare : sni, true);
     wrap = &scr_tls_fetch_client_wrap;
   }
   /* A direct connection goes through fetch's keep-alive agent, which hands

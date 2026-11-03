@@ -69,7 +69,7 @@ export type {
   AnalyzeResult,
 } from "./compile-types.js";
 import { compilePackedLibrary } from "./backend/library-pack.js";
-import { node24FetchCompatProfile } from "./compat/fetch-profile.js";
+import { node26FetchCompatProfile } from "./compat/fetch-profile.js";
 import { libFnSignatures } from "./ir/builtin-signatures.js";
 import { type FunctionLayout, parseFunctionLayout } from "./backend/llvm/function-layout.js";
 import { InternalCompilerError } from "./errors.js";
@@ -308,7 +308,7 @@ export {
   type SurfaceManifestEntry,
 } from "./coverage/surface-manifest.js";
 export {
-  node24FetchCompatProfile,
+  node26FetchCompatProfile,
   type FetchCompatEvidence,
   type FetchCompatFacet,
   type FetchCompatInventory,
@@ -324,9 +324,9 @@ export { libFnSignatures } from "./ir/builtin-signatures.js";
 /** @deprecated Use `libFnSignatures()`. Built when this module loads; the
  * native compiler does not load this module. */
 export const LIB_FN_SIGS = libFnSignatures();
-/** @deprecated Use `node24FetchCompatProfile()`. Built when this module
+/** @deprecated Use `node26FetchCompatProfile()`. Built when this module
  * loads; the native compiler does not load this module. */
-export const NODE24_FETCH_COMPAT_PROFILE = node24FetchCompatProfile();
+export const NODE26_FETCH_COMPAT_PROFILE = node26FetchCompatProfile();
 export { validateModule } from "./ir/validate.js";
 export {
   assignLegacyTiers,
@@ -2484,7 +2484,8 @@ function libraryNativeFeatures(mod: IrModule, backend: "llvm"): EarlyLibraryNati
     regex: features.regex,
     assert: features.assert,
     inspect: features.inspect,
-    symbol: features.symbol,
+    // The base library object exposes Stats with private Symbol properties.
+    symbol: true,
     bigint: features.bigint,
     searchParams: features.searchParams,
     emitter: features.emitter,

@@ -579,9 +579,7 @@ ScrDyn *scr_et_remove_listener(ScrEventTargetCore *core, ScrDyn *const *args, si
   if (valid == 0) return scr_dyn_retain(scr_dyn_undefined());
   ScrStr *type = scr_dyn_string_coerce_js(args[0]);
   if (!type) return NULL;
-  /* `options?.capture === true`: a boolean options value reads no
-   * capture property. */
-  bool capture = false;
+  bool capture = argc > 2 && args[2]->kind == SCR_DYN_BOOL && args[2]->v.b;
   if (argc > 2 && scr_dyn_is_object(args[2])) {
     ScrDyn *v = scr_et_prop(args[2], "capture");
     if (!v && scr_exc_pending()) {
@@ -915,7 +913,9 @@ ScrDyn *scr_et_handler_get(ScrEventTargetCore *core, const char *type) {
 
 void scr_et_handler_set(ScrEventTargetCore *core, const char *type, const ScrDyn *value) {
   ScrDyn *next =
-      value->kind == SCR_DYN_NULL || value->kind == SCR_DYN_UNDEF ? NULL : scr_dyn_retain((ScrDyn *)value);
+      value->kind != SCR_DYN_NULL && (scr_dyn_is_object(value) || scr_dyn_is_callable(value))
+          ? scr_dyn_retain((ScrDyn *)value)
+          : NULL;
   ScrEtHandler *h = scr_et_handler_find(core, type);
   if (h) {
     /* Replacing keeps the wrapper's registration position; the listener

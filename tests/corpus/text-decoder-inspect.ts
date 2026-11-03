@@ -1,7 +1,7 @@
 // TextDecoder and TextEncoder as Node prints them: Object.prototype.toString
 // answers their Symbol.toStringTag, util.inspect prints a decoder's encoding
 // and flags (with util.inspect's default options) and an encoder's encoding,
-// and both print [TextDecoder] and [TextEncoder] past the depth limit.
+// and print [TextDecoder] and TextEncoder {} past the depth limit.
 import * as util from "node:util";
 
 const decoder = new TextDecoder("utf-16le", { fatal: true });

@@ -356,7 +356,8 @@ static void scr_js_buffer_brand_error(const char *label, const ScrBytes *owner) 
 static void scr_js_buffer_detached_error(const char *label) {
   char message[160];
   int length = snprintf(message, sizeof message,
-                        "Cannot perform %s on a detached ArrayBuffer", label);
+                        "Cannot perform %s on a detached%s ArrayBuffer", label,
+                        strncmp(label, "ArrayBuffer.prototype.", 22) == 0 ? "" : " or out-of-bounds");
   scr_throw_error_msg(SCR_ERR_TYPE, message, (size_t)length);
 }
 

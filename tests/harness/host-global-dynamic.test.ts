@@ -107,7 +107,7 @@ for (const name of names) console.log(name, typeof scope[name], name in globalTh
   );
   expect(result.exitCode).toBe(0);
   expect(result.stdout).toBe(
-    ["Bun undefined false", "Deno undefined false", "Temporal undefined false", ""].join("\n"),
+    ["Bun undefined false", "Deno undefined false", "Temporal object true", ""].join("\n"),
   );
 });
 

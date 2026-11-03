@@ -621,6 +621,7 @@ function buildLibFnSignatures() {
      * 0 min, 1 max, 2 mean, 3 stddev, 4 count, 5 exceeds. */
     "perf.loopStart": { argTypes: [], result: F64 },
     "perf.idleTime": { argTypes: [], result: F64 },
+    "perf.activeTime": { argTypes: [], result: F64 },
     "perf.eldNew": { argTypes: [F64], result: F64 },
     "perf.eldEnable": { argTypes: [F64], result: BOOL },
     "perf.eldDisable": { argTypes: [F64], result: BOOL },
@@ -3383,6 +3384,9 @@ function buildLibFnSignatures() {
     "crypto.hashDigestDyn": { argTypes: [CRYPTOHASH_T, DYN], result: DYN },
     "crypto.hmacDigestDyn": { argTypes: [CRYPTOHMAC_T, DYN], result: DYN },
     "crypto.hashOneshot": { argTypes: [STRING, DYN, DYN], result: DYN },
+    /** Connects the digest core's DEP0198 report (scr_crypto_dep0198) for
+     * digests whose algorithm can name SHAKE128 or SHAKE256. */
+    "crypto.hashShakeWarnings": { argTypes: [], result: VOID },
     /** Views of any element kind (the validator checks both are views). */
     "crypto.timingSafeEqual": { argTypes: [null, null], result: BOOL },
     "crypto.timingSafeEqualDyn": { argTypes: [DYN, DYN], result: BOOL },
@@ -4192,6 +4196,8 @@ function buildLibFnSignatures() {
     "global.forInObject": { argTypes: [], result: DYN },
     /** Node's navigator global (scr_node_builtin.c). */
     "navigator.object": { argTypes: [], result: DYN },
+    "global.temporal": { argTypes: [], result: DYN },
+    "global.sessionStorage": { argTypes: [], result: DYN },
     "navigator.language": { argTypes: [], result: STRING },
     "navigator.languages": { argTypes: [], result: DYN },
     "navigator.platform": { argTypes: [], result: STRING },
@@ -4985,7 +4991,7 @@ function buildLibFnSignatures() {
     /** AsyncIteratorClose for Readable[Symbol.asyncIterator](): destroy with
      * Node's AbortError/ABORT_ERR payload while the iterator's internal error
      * consumer prevents an unhandled-error crash. */
-    "stream.iteratorClose": { argTypes: [null], result: VOID },
+    "stream.iteratorClose": { argTypes: [null], result: { kind: "promise", inner: DYN } },
     "stream.prop": { argTypes: [null, STRING], result: VOID },
     "stream.errored": { argTypes: [null], result: VOID },
     // node:assert: pass/negated/deep/hasMsg are frontend-computed bools; the

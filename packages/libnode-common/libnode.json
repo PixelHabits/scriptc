@@ -1,7 +1,7 @@
 {
-  "nodeVersion": "24.22.1",
-  "tarballSha256": "4f5379796280cdaeb0c2f358fd04b6a16cc4fb7dfa83b5a8c91a9d963b435231",
-  "moduleVersion": 137,
-  "configureFlags": ["--shared", "--ninja"],
+  "nodeVersion": "26.13.0",
+  "tarballSha256": "263f639ecfa7a17b49438d76cdbf9aff73179e3c7cb789da69b900718427fa2e",
+  "moduleVersion": 147,
+  "configureFlags": ["--shared", "--ninja", "--v8-enable-temporal-support"],
   "icu": "full"
 }

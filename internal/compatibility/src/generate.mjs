@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/* Generate the website's complete Node.js v24 parity inventory.
+/* Generate the website's complete Node.js v26 parity inventory.
  *
  * Node owns the denominator: the pinned index.md names every API chapter and all.json
  * supplies the structured API tree (classes, methods, properties, events,
@@ -11,7 +11,7 @@
  * "unreviewed" (when no compatibility subsystem owns the classification).
  * Neither state is optimistically treated as support or an explicit refusal.
  *
- *   pnpm node-compat                fetch latest-v24.x and rewrite the snapshot
+ *   pnpm node-compat                fetch the pinned Node API and rewrite the snapshot
  *   pnpm node-compat --check        fetch and fail if the snapshot would change
  *   pnpm node-compat --local        rewrite the snapshot without fetching: reclassify
  *                                   the committed rows from the current sources
@@ -23,19 +23,19 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-const internalOutputPath = `${packageRoot}generated/node-v24-internal.json`;
-const publicOutputPath = `${root}docs/src/generated/node-v24-compatibility.json`;
+const internalOutputPath = `${packageRoot}generated/node-v26-internal.json`;
+const publicOutputPath = `${root}docs/src/generated/node-v26-compatibility.json`;
 // Files derived from the ledger elsewhere: the docs build computes the
 // metadata from the public artifact, and `pnpm node-compat:backlog` builds
 // the backlog in memory. A merge that keeps a branch's copy would bring
 // back a file every compatibility change rewrites.
 const retiredOutputPaths = [
-  `${root}docs/src/generated/node-v24-compatibility-meta.json`,
-  `${packageRoot}generated/node-v24-backlog.json`,
+  `${root}docs/src/generated/node-v26-compatibility-meta.json`,
+  `${packageRoot}generated/node-v26-backlog.json`,
 ];
 const compilerManifestPath = `${root}packages/compiler/surface-manifest.json`;
 const compilerCompatPath = `${packageRoot}static-support.json`;
-const pinPath = `${packageRoot}node-v24.json`;
+const pinPath = `${packageRoot}node-v26.json`;
 const pin = JSON.parse(readFileSync(pinPath, "utf8"));
 const NODE_BASE = pin.markdownBaseUrl;
 const CHILD_FIELDS = ["modules", "classes", "methods", "properties", "events", "globals", "miscs"];
@@ -323,6 +323,12 @@ function classifyStatic(row, chapter, ctx, parentSignature) {
   if (row.depth === 0) return tier("unreviewed", "", { source: "chapter-summary" });
   if (row.scope === "documentation" || row.scope === "configuration")
     return tier("not-applicable", "", { source: row.scope });
+  const modules = pin.chapterModules[row.chapter] ?? [];
+  const owned =
+    modules.length > 0 ||
+    row.chapter in ctx.compilerCompat.chapterPolicies ||
+    ctx.staticFeatures.some((entry) => entry.chapter === row.chapter);
+  if (!owned) return tier("unreviewed", "");
   const feature = featureOf(row, ctx.staticFeatures, parentSignature);
   if (feature)
     return tier(feature.status, "", {
@@ -343,6 +349,9 @@ function classifyStatic(row, chapter, ctx, parentSignature) {
   for (const candidate of manifestSymbolCandidates(row)) {
     const item = ctx.manifest.get(candidate);
     if (item) {
+      // all.json types unqualified class fields by their value. A numeric
+      // field is not a same-named module function.
+      if (parentSignature?.startsWith("Class: ") && row.kind === "number") continue;
       if (item.status === "static") {
         const tests = firstEvidenceForManifestId(item.id, ctx.compilerCompat);
         if (tests.length === 0) return tier("unreviewed", "");
@@ -1077,8 +1086,8 @@ function checkLocal() {
     );
   }
   const ctx = classificationContext();
-  if (snapshot.chapters.length !== 63)
-    throw new Error(`expected 63 pinned Node API chapters, found ${snapshot.chapters.length}`);
+  if (snapshot.chapters.length !== 66)
+    throw new Error(`expected 66 pinned Node API chapters, found ${snapshot.chapters.length}`);
   const ancestors = [];
   for (const row of snapshot.rows) {
     if (row.depth === 0) {

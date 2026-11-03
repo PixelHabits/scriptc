@@ -1,3 +1,4 @@
+import { isTemporalValue } from "./temporal.js";
 import { lowerStaticPrivateAssignment } from "./private-statics.js";
 import type { DiagnosticCode } from "../../diagnostics/codes.js";
 import {
@@ -2363,6 +2364,8 @@ function lowerVarDeclarator(
   // the globals by the same test).
   if (lowerer.builtinConstantsDestructureDecl(decl.name, decl.initializer)) return [];
   if (ts.isArrayBindingPattern(decl.name) || ts.isObjectBindingPattern(decl.name)) {
+    if (decl.initializer !== undefined && isTemporalValue(lowerer, decl.initializer))
+      lowerer.temporalFence(decl);
     // `const { createSign } = crypto` over a builtin NAMESPACE binding:
     // alias plumbing (builtinImportOf routes the reads) — no statement.
     if (builtinNamespaceDestructureModuleOf(lowerer, decl) !== null) return [];
@@ -10049,6 +10052,12 @@ function lowerLogicalBranch(lowerer: Lowerer, expr: ts.BinaryExpression): IrStmt
  * stdlibGlobalNameOf) — user shadows and computed receivers keep their
  * ordinary lowerings and fences. */
 function droppedPureStdlibStatement(lowerer: Lowerer, expr: ts.Expression): boolean {
+  // Temporal member reads carry a native refusal even when discarded.
+  if (
+    (ts.isPropertyAccessExpression(expr) || ts.isElementAccessExpression(expr)) &&
+    isTemporalValue(lowerer, expr.expression)
+  )
+    return false;
   const strip = (e: ts.Expression): ts.Expression => {
     while (ts.isParenthesizedExpression(e)) e = e.expression;
     return e;

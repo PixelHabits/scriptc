@@ -4,7 +4,7 @@
  * secp521r1, secp192k1, secp224k1, secp256k1, brainpoolP256r1,
  * brainpoolP384r1 and brainpoolP512r1). An ECDH is a native dyn handle;
  * its generateKeys(), computeSecret(), getPublicKey(), getPrivateKey(),
- * setPrivateKey() and setPublicKey() methods follow Node 24's
+ * setPrivateKey() and setPublicKey() methods follow Node's
  * lib/internal/crypto/diffiehellman.js argument handling and
  * src/crypto/crypto_ec.cc, and points are read and written as OpenSSL's
  * EC_POINT_oct2point and EC_POINT_point2oct do (compressed, uncompressed,

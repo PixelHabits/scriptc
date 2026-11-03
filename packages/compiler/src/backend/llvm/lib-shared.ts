@@ -319,6 +319,8 @@ export const LIB_FN_SYMS: Record<string, string> = {
   "dyn.installBuiltinStatics": "scr_builtin_statics_install",
   "global.forInObject": "scr_global_for_in_object",
   "navigator.object": "scr_navigator_object",
+  "global.temporal": "scr_temporal_object",
+  "global.sessionStorage": "scr_session_storage_object",
   "navigator.language": "scr_navigator_language",
   "navigator.languages": "scr_navigator_languages",
   "navigator.platform": "scr_navigator_platform",
@@ -381,6 +383,7 @@ export const LIB_FN_SYMS: Record<string, string> = {
   "perf.entryRef": "scr_perf_entry_ref",
   "perf.loopStart": "scr_perf_loop_start",
   "perf.idleTime": "scr_perf_idle_time",
+  "perf.activeTime": "scr_perf_active_time",
   "perf.eldNew": "scr_eld_new",
   "perf.eldEnable": "scr_eld_enable",
   "perf.eldDisable": "scr_eld_disable",
@@ -776,6 +779,7 @@ export const LIB_FN_SYMS: Record<string, string> = {
   "crypto.hashDigestDyn": "scr_crypto_hash_digest_dyn",
   "crypto.hmacDigestDyn": "scr_crypto_hash_digest_dyn",
   "crypto.hashOneshot": "scr_crypto_hash_oneshot",
+  "crypto.hashShakeWarnings": "scr_crypto_hash_shake_warnings",
   "crypto.timingSafeEqual": "scr_crypto_timing_safe_equal",
   "crypto.timingSafeEqualDyn": "scr_crypto_timing_safe_equal_dyn",
   "crypto.randomFill": "scr_crypto_random_fill",
@@ -1541,7 +1545,7 @@ export const LIB_FN_SYMS: Record<string, string> = {
   "writable.cork": "scr_stream_cork",
   "writable.uncork": "scr_stream_uncork",
   "stream.destroyErr": "scr_stream_destroy",
-  "stream.iteratorClose": "scr_stream_iterator_close",
+  "stream.iteratorClose": "scr_stream_iterator_return",
   "stream.onDyn": "scr_stream_on_dyn",
   "readable.readDyn": "scr_stream_read_dyn",
   "readable.newDyn": "scr_stream_new_readable_dyn",
@@ -1976,8 +1980,8 @@ export const USES_TIMERS_LIB_FNS = new Set<string>([
   "process.emitWarning",
   // Constructor-function streams defer their events on the stream ticks.
   "dyn.builtinStreamClass",
-  // Decipheriv.setAuthTag reports DEP0182 on the next tick.
-  "crypto.cipherNew",
+  // SHAKE digests without outputLength report DEP0198 on the next tick.
+  "crypto.hashShakeWarnings",
   // ecdh.setPublicKey reports DEP0031 on the next tick.
   "crypto.ecdhNew",
   // WebCrypto results settle through the deferred crypto queue.

@@ -76,6 +76,7 @@ const LIB_MODE_REFUSED_PREFIXES: readonly [string, string][] = [
   // which library links exclude.
   ["perf.loopStart", "performance.eventLoopUtilization"],
   ["perf.idleTime", "performance.eventLoopUtilization"],
+  ["perf.activeTime", "performance.eventLoopUtilization"],
   ["perf.eld", "perf_hooks.monitorEventLoopDelay"],
   ["test.", "the node:test surface"],
   ["readable.", "the node:stream surface"],
@@ -168,7 +169,8 @@ export function moduleLibAsyncSurface(mod: IrModule): { surface: string; loc: Sr
   // Safety net: the coarse unit predicates, entry-anchored. Every one of
   // these units is excluded from library links, so a true answer that the
   // fine-grained table missed must still refuse.
-  const features = moduleRuntimeFeatures(mod);
+  // Libraries supply a synchronous no-op for the process warning connection.
+  const features = moduleRuntimeFeatures(mod, undefined, new Set(["crypto.hashShakeWarnings"]));
   const coarse: [boolean, string][] = [
     [mod.workers === true, "native worker threads"],
     [features.processEvents, "process signal/exit listeners or the stdin event surface"],

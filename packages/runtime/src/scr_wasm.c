@@ -286,7 +286,7 @@ static const char *scr_wasm_trap_message(int code) {
     case SCR_WASM_TRAP_REM_BY_ZERO: return "remainder by zero";
     case SCR_WASM_TRAP_FLOAT_UNREPRESENTABLE: return "float unrepresentable in integer range";
     case SCR_WASM_TRAP_TABLE_OOB: return "table index is out of bounds";
-    case SCR_WASM_TRAP_SIGNATURE: return "null function or function signature mismatch";
+    case SCR_WASM_TRAP_SIGNATURE: return "function signature mismatch";
     case SCR_WASM_TRAP_NULL: return "dereferencing a null pointer";
     case SCR_WASM_TRAP_ELEM_SEGMENT: return "element segment out of bounds";
     default: return "unreachable";

@@ -1,0 +1,38 @@
+diff --git a/lib/_tsc.js b/lib/_tsc.js
+index 612a1f7eed0fc030660b769480455aabe77b82c2..ff922dedebdb99655d3e9bfdea77fe6611d7a88c 100644
+--- a/lib/_tsc.js
++++ b/lib/_tsc.js
+@@ -94232,6 +94232,14 @@ function transformTypeScript(context) {
+     if (!some(parametersWithPropertyAssignments)) {
+       return visitFunctionBody(body, visitor, context);
+     }
++    // Split statement-level super sequences so parameter properties initialize
++    // after super() and before the remaining operands.
++    body = factory2.updateBlock(body, sameFlatMap(body.statements, (statement) => {
++      if (!isExpressionStatement(statement)) return statement;
++      const expressions = flattenCommaList(statement.expression);
++      if (!some(expressions, isSuperCall)) return statement;
++      return map(expressions, (expression) => factory2.createExpressionStatement(expression));
++    }));
+     let statements = [];
+     resumeLexicalEnvironment();
+     const prologueStatementCount = factory2.copyPrologue(
+diff --git a/lib/typescript.js b/lib/typescript.js
+index 0554fc3fc707ce3edbc3c4f8f4d77f8aa3def7ba..6ba32b51b9293f5d4c36c0ef6ed35d3e3571767a 100644
+--- a/lib/typescript.js
++++ b/lib/typescript.js
+@@ -99025,6 +99025,14 @@ function transformTypeScript(context) {
+     if (!some(parametersWithPropertyAssignments)) {
+       return visitFunctionBody(body, visitor, context);
+     }
++    // Split statement-level super sequences so parameter properties initialize
++    // after super() and before the remaining operands.
++    body = factory2.updateBlock(body, sameFlatMap(body.statements, (statement) => {
++      if (!isExpressionStatement(statement)) return statement;
++      const expressions = flattenCommaList(statement.expression);
++      if (!some(expressions, isSuperCall)) return statement;
++      return map(expressions, (expression) => factory2.createExpressionStatement(expression));
++    }));
+     let statements = [];
+     resumeLexicalEnvironment();
+     const prologueStatementCount = factory2.copyPrologue(

@@ -1,3 +1,4 @@
+// @normalize-pid
 // Hash and Hmac values held in 'unknown' and 'any' slots: update(),
 // digest() and Hash's copy() dispatch through the value, update() answers
 // the same value, a cast back to Hash or Hmac keeps its identity, and the

@@ -67,14 +67,7 @@ static ScrDyn *scr_module_namespace_dyn_write(ScrClosure *clo, ScrDyn *const *ar
   (void)args;
   (void)argc;
   ScrDyn *name = scr_box_get_ref(clo->caps[0]);
-  ScrJsonBuf text;
-  scr_jb_init(&text);
-  scr_jb_puts(&text, "Cannot assign to read only property '");
-  scr_jb_write(&text, name->v.str->data, name->v.str->len);
-  scr_jb_puts(&text, "' of object '[object Module]'");
-  ScrStr *message = scr_jb_finish(&text);
-  scr_throw_error_msg(SCR_ERR_TYPE, message->data, message->len);
-  scr_str_release(message);
+  scr_module_namespace_throw_write(name->v.str->data, name->v.str->len);
   scr_dyn_release(name);
   return NULL;
 }
@@ -96,6 +89,7 @@ static ScrDyn *scr_module_namespace_dyn_fn(ScrDynThunk thunk, ScrDyn *first, Scr
  * not extensible. */
 static ScrDyn *scr_module_namespace_dyn_build(ScrArr *keys, ScrDyn *getter, ScrDyn *tag_key) {
   ScrDyn *object = scr_dyn_new_obj_null_proto();
+  object->module_namespace = true;
   for (size_t i = 0; i < keys->len; i++) {
     ScrStr *key = scr_arr_get_ref(keys, (double)i); /* +1 */
     ScrDyn *name = scr_dyn_new_str(key);

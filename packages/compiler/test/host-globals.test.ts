@@ -1,5 +1,5 @@
 /* The host-global table is derived from the compatibility ledger, never
- * typed by hand: a read of a Node 24 global the native runtime does not
+ * typed by hand: a read of a Node 26 global the native runtime does not
  * implement refuses (SC2020, reason "host-global") instead of answering
  * undefined. This test recomputes the derivation and pins the table. */
 import { globSync, readFileSync } from "node:fs";
@@ -20,12 +20,12 @@ const read = (path: string): string => readFileSync(join(repoRoot, path), "utf8"
 interface LedgerRow {
   chapter: string;
   depth: number;
-  name?: string;
+  apiSymbol: string;
   nodeStability?: { text?: string };
   static?: { status?: string };
 }
 
-/** Node 24 dispatches these only behind a flag (the stability note names
+/** Node 26 dispatches these only behind a flag (the stability note names
  * the flag), so they are not default globals and a probe for them is a
  * genuine absent-capability probe. */
 function flagGated(row: LedgerRow): boolean {
@@ -47,8 +47,8 @@ function declaredGlobals(): Set<string> {
 }
 
 test("NODE_GLOBALS_WITHOUT_NATIVE is the ledger's derived set", () => {
-  const pin = JSON.parse(read("internal/compatibility/node-v24.json")) as { version: string };
-  const ledger = JSON.parse(read("internal/compatibility/generated/node-v24-internal.json")) as {
+  const pin = JSON.parse(read("internal/compatibility/node-v26.json")) as { version: string };
+  const ledger = JSON.parse(read("internal/compatibility/generated/node-v26-internal.json")) as {
     nodeVersion: string;
     rows: LedgerRow[];
   };
@@ -61,19 +61,20 @@ test("NODE_GLOBALS_WITHOUT_NATIVE is the ledger's derived set", () => {
         (row) =>
           row.chapter === "globals" &&
           row.depth === 1 &&
-          row.name !== undefined &&
           !flagGated(row) &&
           row.static?.status === "not-implemented",
       )
-      .map((row) => String(row.name).replace(/`/g, ""))
+      .map((row) => row.apiSymbol)
       .filter((name) => !declared.has(name) && !COMMONJS_MODULE_BINDINGS.has(name)),
   );
 
-  // Performance is a Node 24 global the docs' globals chapter omits (Node
+  // Performance is a Node 26 global the docs' globals chapter omits (Node
   // documents the class under perf_hooks, which has no Performance row
   // either). The design repro's runtime probe pins it as a global whose
   // typeof is "function", so it is the table's one documented extra.
   derived.add("Performance");
+  // These fallback declarations expose constructor probes, while construction refuses.
+  for (const name of ["ErrorEvent", "QuotaExceededError", "Storage"]) derived.add(name);
 
   expect([...NODE_GLOBALS_WITHOUT_NATIVE].sort()).toEqual([...derived].sort());
 });

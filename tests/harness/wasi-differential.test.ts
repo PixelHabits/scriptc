@@ -3,6 +3,7 @@
  * selection independently of the host platform.
  */
 import { execFile, execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -331,7 +332,7 @@ describe.skipIf(!zigOnPath())("wasm32-wasi differential", () => {
     expect(result.llvmPath.endsWith(".ll")).toBe(true);
     expect([...(await readFile(outPath)).subarray(0, 4)]).toEqual([0x00, 0x61, 0x73, 0x6d]);
 
-    const node = await run(process.execPath, ["--no-warnings", entry]);
+    const node = await run(process.execPath, [entry]);
     const wasm = await run(process.execPath, [
       "--no-warnings",
       "--experimental-wasi-unstable-preview1",
@@ -342,7 +343,13 @@ describe.skipIf(!zigOnPath())("wasm32-wasi differential", () => {
     expect(wasm.stdout).toBe(node.stdout);
     expect(wasm.exitCode).toBe(expectedExitCode(entry));
     expect(node.exitCode).toBe(expectedExitCode(entry));
-    if (wasm.exitCode === 0) expect(wasm.stderr).toBe(node.stderr);
+    if (wasm.exitCode === 0) {
+      const normalize = (stderr: string): string =>
+        readFileSync(entry, "utf8").includes("// @normalize-pid")
+          ? stderr.replace(/\(node:\d+\)/g, "(node:PID)")
+          : stderr;
+      expect(normalize(wasm.stderr)).toBe(normalize(node.stderr));
+    }
   });
 
   test("the explicit LLVM pin emits compact release wasm", async () => {

@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
-import ts5 from "typescript";
+import { tscOracleIdentity } from "./jsx-oracle.js";
 import { compile } from "@scriptc/compiler";
 import { corpusSelect, shardSuffix } from "./shard.js";
 import { oracleEnvKey } from "./oracle-env.js";
@@ -170,12 +170,11 @@ function oracleKeyBase(): Promise<string> {
   // trusting process.version (vitest's own node could differ).
   oracleKeyBaseMemo ??= execFileAsync("node", ["--version"]).then(({ stdout }) =>
     createHash("sha256")
-      .update("oracle-v1\0")
+      .update("oracle-v2\0")
       .update(stdout.trim())
       .update("\0")
-      // Decorator programs run tsc's downlevel on the Node side — its
-      // emitter version is part of the verdict.
-      .update(ts5.version)
+      .update(tscOracleIdentity)
+      .update(readFileSync(join(import.meta.dirname, "node-oracle.ts")))
       .update("\0")
       .update(readFileSync(fileURLToPath(comptimeShim)))
       .update("\0")

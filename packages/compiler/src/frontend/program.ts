@@ -119,7 +119,6 @@ import {
   npmBuiltinAliasOf,
   SUPPORTED_NODE_MODULES,
   unsupportedModuleFeatureOf,
-  TEMPORAL_GLOBAL,
 } from "./builtin-modules.js";
 import {
   clearWorkspacePackages,
@@ -192,15 +191,14 @@ const FORCED_OPTIONS: ts.Ts7CompilerOptions = {
   // classification is intentionally independent below; this option is only
   // the binder's scope decision.
   moduleDetection: ts.ModuleDetectionKind.Force,
-  // Explicit resource management, Array.fromAsync and Error.isError are
-  // ESNext library slices in TS 7 even though Node 24 ships them. Include
-  // those focused libs without widening the rest of the standard-library
-  // target past ES2025.
+  // These ESNext library slices describe APIs Node exposes. Keep the rest
+  // of the standard-library target at ES2025.
   lib: [
     "lib.es2025.d.ts",
     "lib.esnext.disposable.d.ts",
     "lib.esnext.array.d.ts",
     "lib.esnext.error.d.ts",
+    "lib.esnext.temporal.d.ts",
   ],
   types: [],
   allowImportingTsExtensions: true,
@@ -828,42 +826,6 @@ function entryPackageProgramRoots7(
   return [...roots].sort();
 }
 
-/** TS 7's ESNext temporal declarations: a lib slice scriptc adds only for
- * programs whose sources name the global (programNamesTemporal7). */
-const TEMPORAL_LIB = "lib.esnext.temporal.d.ts";
-
-/** True when a program source (user code or compiled npm JavaScript)
- * contains the temporal global's name as a whole word. A cheap syntactic
- * scan of the implementation files root discovery already materialized; a
- * mention in a comment or string also counts, which only adds the lib
- * slice. */
-function programNamesTemporal7(program: ts.Program): boolean {
-  for (const sf of program.getImplementationSourceFiles()) {
-    const text = sf.text;
-    for (
-      let at = text.indexOf(TEMPORAL_GLOBAL);
-      at >= 0;
-      at = text.indexOf(TEMPORAL_GLOBAL, at + 8)
-    ) {
-      if (!isIdentifierCharAt(text, at - 1) && !isIdentifierCharAt(text, at + 8)) return true;
-    }
-  }
-  return false;
-}
-
-function isIdentifierCharAt(text: string, index: number): boolean {
-  if (index < 0 || index >= text.length) return false;
-  const c = text.charCodeAt(index);
-  return (
-    (c >= 48 && c <= 57) ||
-    (c >= 65 && c <= 90) ||
-    (c >= 97 && c <= 122) ||
-    c === 36 ||
-    c === 95 ||
-    c > 127
-  );
-}
-
 /** "require" for a CommonJS edge (`require("x")`, `import x = require("x")`),
  * "import" for every ESM form — the resolution kind preflight uses. */
 function moduleSpecifierKind7(specifier: ts.StringLiteralLike): "import" | "require" {
@@ -1000,20 +962,6 @@ function loadProgram7(
       for (const root of extraRoots) programRoots.push(root);
       program = host.createProgram([...programRoots, overridesDtsPath()], options);
       if (pass === 31) throw new Error("static program-root discovery did not converge");
-    }
-    // Node 24 ships no temporal global, but TS 7 types it in an ESNext
-    // lib slice. Programs that name it (feature probes such as smol-toml's
-    // typeof check) get that slice so they type-check, and lower to Node's
-    // answers (typeof "undefined", ReferenceError on use). Every other
-    // program keeps the identical lib set: the slice would add globals to
-    // the checker's world for everyone.
-    if (programNamesTemporal7(program)) {
-      program.dispose();
-      options = {
-        ...options,
-        lib: [...((options.lib as string[] | undefined) ?? []), TEMPORAL_LIB],
-      };
-      program = host.createProgram([...programRoots, overridesDtsPath()], options);
     }
     // JSX: the program above checks the files as written; the program the
     // lowering compiles holds them with their JSX lowered.
@@ -8319,8 +8267,6 @@ const DOM_GLOBALS = new Set([
   "document",
   "navigator",
   "location",
-  "localStorage",
-  "sessionStorage",
   "HTMLElement",
   "Element",
   "Document",

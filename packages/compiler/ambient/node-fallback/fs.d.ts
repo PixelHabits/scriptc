@@ -390,6 +390,10 @@ declare module "node:fs" {
     readonly mtime: Date;
     readonly ctime: Date;
     readonly birthtime: Date;
+    readonly atimeInstant: Temporal.Instant;
+    readonly mtimeInstant: Temporal.Instant;
+    readonly ctimeInstant: Temporal.Instant;
+    readonly birthtimeInstant: Temporal.Instant;
   }
   /* Node's BigIntStats: the same snapshot under the bigint member table.
    * Every number member of Stats — including the *Ms millisecond members —
@@ -425,6 +429,10 @@ declare module "node:fs" {
     readonly mtime: Date;
     readonly ctime: Date;
     readonly birthtime: Date;
+    readonly atimeInstant: Temporal.Instant;
+    readonly mtimeInstant: Temporal.Instant;
+    readonly ctimeInstant: Temporal.Instant;
+    readonly birthtimeInstant: Temporal.Instant;
   }
   /* throwIfNoEntry: false answers undefined for a missing entry (ENOENT or
    * ENOTDIR) instead of throwing. bigint: true answers BigIntStats. */

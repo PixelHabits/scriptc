@@ -15,7 +15,7 @@ class BuildError extends KitError {
 
 function libnodeMapped(): boolean {
   if (!existsSync("/proc/self/maps")) return false;
-  return readFileSync("/proc/self/maps", "utf8").includes("libnode");
+  return readFileSync("/proc/self/maps", "utf8").includes("/libnode.so.");
 }
 
 function fail(really: boolean): void {

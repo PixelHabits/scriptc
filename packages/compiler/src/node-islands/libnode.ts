@@ -35,10 +35,8 @@ import {
   type LibnodePack,
 } from "./libnode-pack.js";
 
-/** The oldest Node.js release Node islands support: synchronous
- * module.registerHooks, which shared modules need, is a release candidate
- * from here on (decision 5). */
-export const NODE_ISLAND_MIN_NODE = "24.13.1";
+/** The oldest Node.js release supported by this compiler's Node islands. */
+export const NODE_ISLAND_MIN_NODE = "26.13.0";
 
 /** The bridge ABI this compiler's runtime speaks (scr_node_bridge.h). */
 export const NODE_BRIDGE_ABI = 10;

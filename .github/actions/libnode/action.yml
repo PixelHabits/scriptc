@@ -3,21 +3,24 @@ description: >-
   Provide the runner's libnode pack for the Node island tests and export
   SCRIPTC_LIBNODE. Restores the libnode build that the libnode-packs
   workflow cached and assembles @scriptc/libnode-<platform> from it (the
-  bridge compiles in seconds; Node is never built here). Until that cache
-  exists for this ref, it falls back to the pinned, checksum-verified
-  development pack (packages/libnode-common/dev-pack.json). Fails the job if
-  no pack results: the island tests must never skip in CI.
+  bridge compiles in seconds; Node is never built here). If the cache is
+  missing, uses a checksum-verified development download when one is listed
+  in packages/libnode-common/dev-pack.json. Requires the Node release pinned
+  in libnode.json: the island tests must never skip in CI.
 runs:
   using: composite
   steps:
+    - name: Provision Rust
+      shell: bash
+      run: source .github/actions/libnode/rust.sh
     - name: Name the runner's pack
       id: target
       shell: bash
       run: |
         case "$RUNNER_OS-$RUNNER_ARCH" in
-          Linux-X64) platform=linux-x64-gnu toolchain=manylinux_2_28-gcc-toolset-14 bridge=libscr_node_bridge.so ;;
-          macOS-ARM64) platform=darwin-arm64 toolchain=macos-15-xcode-clang bridge=libscr_node_bridge.dylib ;;
-          macOS-X64) platform=darwin-x64 toolchain=macos-15-xcode-clang bridge=libscr_node_bridge.dylib ;;
+          Linux-X64) platform=linux-x64-gnu toolchain=manylinux_2_28-gcc-toolset-14-rust-1.86.0 bridge=libscr_node_bridge.so ;;
+          macOS-ARM64) platform=darwin-arm64 toolchain=macos-15-xcode-clang-rust-1.86.0 bridge=libscr_node_bridge.dylib ;;
+          macOS-X64) platform=darwin-x64 toolchain=macos-15-xcode-clang-rust-1.86.0 bridge=libscr_node_bridge.dylib ;;
           *) echo "::error::no libnode pack for $RUNNER_OS $RUNNER_ARCH"; exit 1 ;;
         esac
         printf 'platform=%s\ntoolchain=%s\nbridge=%s\n' "$platform" "$toolchain" "$bridge" >> "$GITHUB_OUTPUT"
@@ -62,3 +65,4 @@ runs:
       run: |
         test -f "$SCRIPTC_LIBNODE/manifest.json"
         test -f "$SCRIPTC_LIBNODE/${{ steps.target.outputs.bridge }}"
+        node packages/libnode-common/scripts/smoke.mjs --pack "$SCRIPTC_LIBNODE"

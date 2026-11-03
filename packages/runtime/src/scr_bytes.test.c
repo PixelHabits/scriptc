@@ -141,9 +141,10 @@ void scr_bytes_test_buffer_pool(void) {
   ScrBytes *b = scr_buffer_alloc_unsafe(9);
   ScrBytes *c = scr_buffer_alloc_unsafe(1);
   assert(a->backing && a->backing == b->backing && b->backing == c->backing);
-  assert(a->backing->len == 65536 && a->backing->untransferable);
-  assert(scr_bytes_byte_offset(a) == 0 && scr_bytes_byte_offset(b) == 8 &&
-         scr_bytes_byte_offset(c) == 24);
+  assert(a->backing->len == 65536 + 64 && a->backing->untransferable);
+  double base = scr_bytes_byte_offset(a);
+  assert(base < 64 && ((uintptr_t)a->data & 63) == 0);
+  assert(scr_bytes_byte_offset(b) == base + 8 && scr_bytes_byte_offset(c) == base + 24);
   ScrBytes *slab = scr_bytes_retain(a->backing);
   ScrBytes *big = scr_buffer_alloc_unsafe(32768);
   assert(big && !big->backing && big->len == 32768);
@@ -153,18 +154,21 @@ void scr_bytes_test_buffer_pool(void) {
   /* A 60-byte slab: after offset 56 four bytes remain, then none. */
   scr_buffer_set_pool_size(60);
   ScrBytes *t = scr_buffer_alloc_unsafe(29);
-  while (scr_bytes_byte_offset(t) != 0) {
+  while (t->backing == slab) {
     scr_bytes_release(t);
     t = scr_buffer_alloc_unsafe(29);
   }
-  assert(t->backing->len == 60);
+  assert(t->backing->len == 60 + 64);
+  double small_base = scr_bytes_byte_offset(t);
+  assert(small_base < 64 && ((uintptr_t)t->data & 63) == 0);
   ScrBytes *u = scr_buffer_alloc_unsafe(20);
   ScrStr *euro = scr_str_new("\xe2\x82\xac", 3), *utf16 = scr_str_new("utf16le", 7);
   ScrBytes *w = scr_buffer_from_str(euro, utf16);
-  assert(w->backing == t->backing && scr_bytes_byte_offset(w) == 56 && w->len == 2);
+  assert(w->backing == t->backing && scr_bytes_byte_offset(w) == small_base + 56 && w->len == 2);
   assert(w->data[0] == 0xac && w->data[1] == 0x20);
   ScrBytes *x = scr_buffer_alloc_unsafe(1);
-  assert(x->backing != t->backing && scr_bytes_byte_offset(x) == 0);
+  assert(x->backing != t->backing && scr_bytes_byte_offset(x) < 64);
+  assert(((uintptr_t)x->data & 63) == 0);
   scr_buffer_set_pool_size(0);
   ScrBytes *y = scr_buffer_alloc_unsafe(1);
   assert(!y->backing);

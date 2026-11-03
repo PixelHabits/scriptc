@@ -2412,7 +2412,8 @@ function validateFunction(
                                                   ? { argTypes: [e.type], result: e.type }
                                                   : e.method === "shift"
                                                     ? { argTypes: [], result: e.type } // union-checked below
-                                                    : e.method === "sortValues"
+                                                    : e.method === "sortValues" ||
+                                                        e.method === "sortValuesCopy"
                                                       ? {
                                                           argTypes: [F64, null, F64, null],
                                                           result: VOID,
@@ -2435,11 +2436,16 @@ function validateFunction(
             e.loc,
           );
         }
-        if (e.method === "sortValues" || e.method === "sortDense") {
+        if (
+          e.method === "sortValues" ||
+          e.method === "sortValuesCopy" ||
+          e.method === "sortDense"
+        ) {
           const arms = elem.kind === "union" ? unions.get(elem.unionId)?.arms : undefined;
           if (!isSortValuesElement(elem, arms))
             err(`arrIntrinsic ${e.method} on ${elem.kind} elements`, e.loc);
-          const cmp = e.args[e.method === "sortValues" ? 1 : 0]?.type;
+          const cmp =
+            e.args[e.method === "sortValues" || e.method === "sortValuesCopy" ? 1 : 0]?.type;
           if (
             !cmp ||
             cmp.kind !== "func" ||
@@ -2561,7 +2567,9 @@ function validateFunction(
             ? 0
             : e.method === "splice"
               ? 1
-              : e.method === "sortValues" || e.method === "sortDense"
+              : e.method === "sortValues" ||
+                  e.method === "sortValuesCopy" ||
+                  e.method === "sortDense"
                 ? 2
                 : sig.argTypes.length;
         if (e.args.length < minArgs || e.args.length > sig.argTypes.length) {
@@ -6163,11 +6171,16 @@ function validateFunction(
         e.fn === "writable.writeEncoding" ||
         e.fn === "writable.setDefaultEncoding" ||
         e.fn === "stream.destroy" ||
-        e.fn === "stream.destroyErr" ||
-        e.fn === "stream.iteratorClose"
+        e.fn === "stream.destroyErr"
       ) {
         if (!typeEquals(e.type, e.args[0]!.type)) {
           err(`libCall ${e.fn} must return its receiver's type (the chaining 'this')`, e.loc);
+        }
+        return true;
+      }
+      if (e.fn === "stream.iteratorClose") {
+        if (e.type.kind !== "promise" || !typeEquals(e.type.inner, DYN)) {
+          err("stream.iteratorClose must return a dynamic promise", e.loc);
         }
         return true;
       }

@@ -197,6 +197,7 @@ double scr_perf_now(void);
 void scr_perf_loop_mark(void);
 double scr_perf_loop_start(void);
 double scr_perf_idle_time(void);
+double scr_perf_active_time(void);
 double scr_eld_new(double resolution);
 bool scr_eld_enable(double handle);
 bool scr_eld_disable(double handle);

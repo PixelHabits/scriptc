@@ -17,14 +17,14 @@ import { findInstalledLibnodePack, hostLibnodeTarget } from "./libnode-pack.js";
 
 function pack(nodeVersion: string, bridgeAbi = NODE_BRIDGE_ABI): string {
   const dir = mkdtempSync(join(tmpdir(), "scriptc-libnode-"));
-  writeFileSync(join(dir, "libnode.so.137"), "lib");
+  writeFileSync(join(dir, "libnode.so.147"), "lib");
   writeFileSync(join(dir, "libscr_node_bridge.so"), "bridge");
   writeFileSync(
     join(dir, "manifest.json"),
     JSON.stringify({
       nodeVersion,
       bridgeAbi,
-      files: { "libnode.so.137": {}, "libscr_node_bridge.so": {} },
+      files: { "libnode.so.147": {}, "libscr_node_bridge.so": {} },
     }),
   );
   return dir;
@@ -32,11 +32,11 @@ function pack(nodeVersion: string, bridgeAbi = NODE_BRIDGE_ABI): string {
 
 describe("the recorded libnode pack", () => {
   test("records the pack directory and its exact Node version", () => {
-    const dir = pack("24.22.0");
-    expect(libnodeRecord(dir, "/out/app", {})).toEqual({ libnode: dir, nodeVersion: "24.22.0" });
+    const dir = pack("26.13.0");
+    expect(libnodeRecord(dir, "/out/app", {})).toEqual({ libnode: dir, nodeVersion: "26.13.0" });
     expect(libnodeRecord(undefined, "/out/app", { SCRIPTC_LIBNODE: dir })).toEqual({
       libnode: dir,
-      nodeVersion: "24.22.0",
+      nodeVersion: "26.13.0",
     });
   });
 
@@ -59,22 +59,24 @@ describe("the recorded libnode pack", () => {
     expect(libnodeRecord("/nonexistent", "/out/app", {})).toBe(
       "no libnode pack at /nonexistent (manifest.json is missing or unreadable)",
     );
-    expect(libnodeRecord(pack("24.12.0"), "/out/app", {})).toMatch(
-      /is Node 24\.12\.0; Node islands need Node\.js >=24\.13\.1$/,
-    );
-    expect(libnodeRecord(pack("24.22.0", 99), "/out/app", {})).toMatch(/has bridge ABI 99/);
+    for (const version of ["24.22.1", "26.12.1"]) {
+      expect(libnodeRecord(pack(version), "/out/app", {})).toContain(
+        `is Node ${version}; Node islands need Node.js >=26.13.0`,
+      );
+    }
+    expect(libnodeRecord(pack("26.13.0", 99), "/out/app", {})).toMatch(/has bridge ABI 99/);
     expect(libnodeRecord("relative/pack", "/out/app", {})).toBe(
       "the libnode pack directory must be absolute, got 'relative/pack'",
     );
   });
 
   test("beside copies the pack next to the executable and records it relative to it", () => {
-    const dir = pack("24.22.0");
+    const dir = pack("26.13.0");
     const out = mkdtempSync(join(tmpdir(), "scriptc-libnode-out-"));
     mkdirSync(out, { recursive: true });
     expect(libnodeRecord("beside", join(out, "app"), { SCRIPTC_LIBNODE: dir })).toEqual({
       libnode: "$ORIGIN/app.libnode",
-      nodeVersion: "24.22.0",
+      nodeVersion: "26.13.0",
     });
     expect(readFileSync(join(out, "app.libnode/libscr_node_bridge.so"), "utf8")).toBe("bridge");
     expect(existsSync(join(out, "app.libnode/manifest.json"))).toBe(true);
@@ -82,20 +84,20 @@ describe("the recorded libnode pack", () => {
 
   test("beside places the pack again after the outputs were deleted", () => {
     // A cached executable restored without its pack gets it again (compile, index.ts).
-    const dir = pack("24.22.0");
+    const dir = pack("26.13.0");
     const out = mkdtempSync(join(tmpdir(), "scriptc-libnode-out-"));
     libnodeRecord("beside", join(out, "app"), { SCRIPTC_LIBNODE: dir });
     rmSync(join(out, "app.libnode"), { recursive: true, force: true });
     expect(libnodeRecord("beside", join(out, "app"), { SCRIPTC_LIBNODE: dir })).toEqual({
       libnode: "$ORIGIN/app.libnode",
-      nodeVersion: "24.22.0",
+      nodeVersion: "26.13.0",
     });
     expect(readFileSync(join(out, "app.libnode/libscr_node_bridge.so"), "utf8")).toBe("bridge");
   });
 
   test("beside refuses to replace the pack it copies", () => {
     const out = mkdtempSync(join(tmpdir(), "scriptc-libnode-out-"));
-    const first = pack("24.22.0");
+    const first = pack("26.13.0");
     libnodeRecord("beside", join(out, "app"), { SCRIPTC_LIBNODE: first });
     // The placed copy as the source of the next beside build.
     const placed = join(out, "app.libnode");
@@ -106,10 +108,10 @@ describe("the recorded libnode pack", () => {
   });
 
   test("beside refuses manifest file names outside the pack", () => {
-    const dir = pack("24.22.0");
+    const dir = pack("26.13.0");
     writeFileSync(
       join(dir, "manifest.json"),
-      JSON.stringify({ nodeVersion: "24.22.0", bridgeAbi: NODE_BRIDGE_ABI, files: { "../x": {} } }),
+      JSON.stringify({ nodeVersion: "26.13.0", bridgeAbi: NODE_BRIDGE_ABI, files: { "../x": {} } }),
     );
     const out = mkdtempSync(join(tmpdir(), "scriptc-libnode-out-"));
     expect(libnodeRecord("beside", join(out, "app"), { SCRIPTC_LIBNODE: dir })).toBe(
@@ -120,11 +122,11 @@ describe("the recorded libnode pack", () => {
 
   test("beside refuses manifest file names outside the pack", () => {
     for (const name of ["..", ".", "../escaped", "/etc/passwd", "a/b", "a\\b", "x\u0000y"]) {
-      const dir = pack("24.22.0");
+      const dir = pack("26.13.0");
       writeFileSync(
         join(dir, "manifest.json"),
         JSON.stringify({
-          nodeVersion: "24.22.0",
+          nodeVersion: "26.13.0",
           bridgeAbi: NODE_BRIDGE_ABI,
           files: { [name]: {} },
         }),
@@ -139,14 +141,14 @@ describe("the recorded libnode pack", () => {
   });
 
   test("beside refuses pack files that are symbolic links", () => {
-    const dir = pack("24.22.0");
+    const dir = pack("26.13.0");
     const elsewhere = join(mkdtempSync(join(tmpdir(), "scriptc-libnode-elsewhere-")), "secret");
     writeFileSync(elsewhere, "secret");
-    rmSync(join(dir, "libnode.so.137"));
-    symlinkSync(elsewhere, join(dir, "libnode.so.137"));
+    rmSync(join(dir, "libnode.so.147"));
+    symlinkSync(elsewhere, join(dir, "libnode.so.147"));
     const out = mkdtempSync(join(tmpdir(), "scriptc-libnode-out-"));
     expect(libnodeRecord("beside", join(out, "app"), { SCRIPTC_LIBNODE: dir })).toBe(
-      `the libnode pack at ${dir} holds libnode.so.137 as a symbolic link; pack files must be regular files`,
+      `the libnode pack at ${dir} holds libnode.so.147 as a symbolic link; pack files must be regular files`,
     );
     expect(existsSync(join(out, "app.libnode"))).toBe(false);
   });
@@ -182,29 +184,29 @@ describe("the libnode pack identity a cached build keeps", () => {
     if (name === null) return;
     const installed = join(project, "node_modules", name);
     mkdirSync(installed, { recursive: true });
-    writeFileSync(join(installed, "manifest.json"), JSON.stringify({ nodeVersion: "24.22.0" }));
+    writeFileSync(join(installed, "manifest.json"), JSON.stringify({ nodeVersion: "26.13.0" }));
     const before = libnodeCacheKey(undefined, {}, project);
     expect(before).toContain(installed);
-    writeFileSync(join(installed, "manifest.json"), JSON.stringify({ nodeVersion: "24.23.0" }));
+    writeFileSync(join(installed, "manifest.json"), JSON.stringify({ nodeVersion: "26.14.0" }));
     expect(libnodeCacheKey(undefined, {}, project)).not.toBe(before);
     rmSync(installed, { recursive: true, force: true });
     withoutProjectPack(libnodeCacheKey(undefined, {}, project));
   });
 
   test("changes when the pack in the same directory is upgraded", () => {
-    const dir = pack("24.22.0");
+    const dir = pack("26.13.0");
     const before = libnodeCacheKey(dir, {});
     expect(libnodeCacheKey(dir, {})).toBe(before);
     writeFileSync(
       join(dir, "manifest.json"),
-      JSON.stringify({ nodeVersion: "24.23.0", bridgeAbi: NODE_BRIDGE_ABI, files: {} }),
+      JSON.stringify({ nodeVersion: "26.14.0", bridgeAbi: NODE_BRIDGE_ABI, files: {} }),
     );
     expect(libnodeCacheKey(dir, {})).not.toBe(before);
   });
 
   test("names the pack beside copies from", () => {
-    const a = pack("24.22.0");
-    const b = pack("24.22.0");
+    const a = pack("26.13.0");
+    const b = pack("26.13.0");
     expect(libnodeCacheKey("beside", { SCRIPTC_LIBNODE: a })).not.toBe(
       libnodeCacheKey("beside", { SCRIPTC_LIBNODE: b }),
     );

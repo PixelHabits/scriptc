@@ -48,7 +48,7 @@ o.addEventListener("o", () => console.log("once"), { once: true });
 o.addEventListener("o", shared, true);
 o.addEventListener("o", shared, { capture: false });
 o.dispatchEvent(new Event("o"));
-o.removeEventListener("o", shared, true); // a boolean options value reads no capture
+o.removeEventListener("o", shared, true); // a boolean options value supplies capture
 o.dispatchEvent(new Event("o"));
 o.removeEventListener("o", shared, { capture: true });
 o.dispatchEvent(new Event("o"));

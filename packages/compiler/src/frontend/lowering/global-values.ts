@@ -1,3 +1,4 @@
+import { temporalValue } from "./temporal.js";
 /* Builtin globals read through the global object by a name the compiler
  * does not see (`globalThis[name]`, `for (name in globalThis)` followed by
  * `globalThis[name]`). Such a read answers what the name's static spelling
@@ -13,7 +14,10 @@
  * other declared names: a value, `undefined` for the token, or `null` for
  * a name without one, whose read keeps its SC2020 refusal. */
 import * as ts from "../ts7/adapter.js";
+import { boolLit, dynUndefinedExpr, strLit, varRef } from "../../ir/build.js";
 import {
+  BOOL,
+  VOID,
   BYTES_ELEMENT_NAME,
   DYN,
   F64,
@@ -27,7 +31,7 @@ import {
 import { isJsSourceFile } from "../program.js";
 import { isStrictCode } from "./strict-mode.js";
 import type { Lowerer } from "./lowerer.js";
-import { COMMONJS_MODULE_BINDINGS, TEMPORAL_GLOBAL } from "../builtin-modules.js";
+import { COMMONJS_MODULE_BINDINGS } from "../builtin-modules.js";
 import { stdlibGlobalNameOf } from "./surfaces.js";
 import { builtinGlobalValue } from "./expressions/property-access.js";
 import { builtinNamespaceValue } from "./builtin-namespaces.js";
@@ -52,6 +56,7 @@ const RUNTIME_ANSWERED = new Set([
   "undefined",
   "NaN",
   "Infinity",
+  "Temporal",
 ]);
 
 /** Declared globals whose reads through the global object stay refused:
@@ -222,13 +227,73 @@ export function jsSpecialGlobalValue(
   if (URI_FUNCTIONS.has(name)) return uriFunctionValue(lowerer, name, loc);
   if (name === "crypto")
     return { kind: "libCall", fn: "webcrypto.object", args: [], type: DYN, loc };
+  if (name === "Temporal") return temporalValue(loc);
   if (name === "navigator") return navigatorValue(loc);
+  if (name === "localStorage") return localStorageValue(lowerer, loc);
+  if (name === "sessionStorage")
+    return { kind: "libCall", fn: "global.sessionStorage", args: [], type: DYN, loc };
   if (name === "Buffer")
     return { kind: "libCall", fn: "buffer.constructor", args: [], type: DYN, loc };
   if (name === "fetch") return { kind: "libCall", fn: "fetch.function", args: [], type: DYN, loc };
   if (name === "console")
     return { kind: "libCall", fn: "console.native", args: [], type: DYN, loc };
   return globalFunctionValue(lowerer, name, loc, reportFences);
+}
+
+/** The default Node localStorage getter warns once and returns undefined. */
+export function localStorageValue(lowerer: Lowerer, loc: SrcLoc): IrExpr {
+  const helper = "%global.localStorage";
+  if (!lowerer.liftedFns.some((fn) => fn.name === helper)) {
+    const ready = "%g.localStorageWarned";
+    lowerer.globalsList.push({
+      id: ready,
+      name: "localStorage warning",
+      type: BOOL,
+      mutable: true,
+    });
+    const warning: IrExpr = {
+      kind: "dynArrLit",
+      elems: [
+        "localStorage is not available because --localstorage-file was not provided.",
+        "ExperimentalWarning",
+      ].map((text) => ({ kind: "dynFrom", value: strLit(text, loc), type: DYN, loc })),
+      type: DYN,
+      loc,
+    };
+    lowerer.liftedFns.push({
+      name: helper,
+      params: [],
+      locals: [],
+      returnType: DYN,
+      loc,
+      body: [
+        {
+          kind: "if",
+          cond: { kind: "unary", op: "!", operand: varRef(ready, BOOL, loc), type: BOOL, loc },
+          then: [
+            { kind: "assign", localId: ready, value: boolLit(true, loc), loc },
+            {
+              kind: "exprStmt",
+              expr: {
+                kind: "libCall",
+                fn: "process.emitWarning",
+                args: [warning],
+                type: VOID,
+                loc,
+              },
+              loc,
+            },
+          ],
+          else_: null,
+          loc,
+        },
+        { kind: "return", value: dynUndefinedExpr(loc), loc },
+      ],
+    });
+    lowerer.shareHelper(helper);
+  }
+  lowerer.noteEdge(helper);
+  return { kind: "call", callee: helper, args: [], type: DYN, loc };
 }
 
 const URI_FUNCTIONS = new Set([
@@ -349,12 +414,7 @@ function declaredGlobalNames(lowerer: Lowerer, at: ts.Node): string[] {
   return lowerer.checker
     .getPropertiesOfType(lowerer.checker.getTypeOfSymbol(symbol))
     .map((property) => ts.symbolName(property))
-    .filter(
-      (name) =>
-        name !== TEMPORAL_GLOBAL &&
-        !RUNTIME_ANSWERED.has(name) &&
-        !COMMONJS_MODULE_BINDINGS.has(name),
-    );
+    .filter((name) => !RUNTIME_ANSWERED.has(name) && !COMMONJS_MODULE_BINDINGS.has(name));
 }
 
 /** The names the program's lookup answers: every declared global when a

@@ -24,7 +24,9 @@ if (!values.out) {
 const platform = `${process.platform}-${process.arch}`;
 const pins = JSON.parse(readFileSync(join(here, "dev-pack.json"), "utf8"))[platform];
 if (pins === undefined) {
-  console.error(`dev-pack.json pins no libnode for ${platform}`);
+  console.error(
+    `dev-pack.json pins no libnode for ${platform}; run the libnode-packs workflow to cache the pinned Node build`,
+  );
   process.exit(1);
 }
 

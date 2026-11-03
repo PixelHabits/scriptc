@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { node24FetchCompatProfile } from "../src/compat/fetch-profile.js";
+import { node26FetchCompatProfile } from "../src/compat/fetch-profile.js";
 import { NODE_COMPAT_VERSION } from "../src/frontend/lowering/builtins/process.js";
 import { CRYPTO_CONSTANTS } from "../src/frontend/lowering/crypto-tables.js";
 import { ZLIB_CONSTANTS } from "../src/frontend/lowering/zlib-constants.js";
@@ -15,7 +15,7 @@ const read = (path: string): string => readFileSync(join(repoRoot, path), "utf8"
 
 test("the Node pins agree", () => {
   const pinned = read(".node-version").trim();
-  const compat = JSON.parse(read("internal/compatibility/node-v24.json")) as {
+  const compat = JSON.parse(read("internal/compatibility/node-v26.json")) as {
     version: string;
     tag: string;
   };
@@ -23,7 +23,7 @@ test("the Node pins agree", () => {
   expect(compat.tag).toBe(`v${pinned}`);
   expect(read("Dockerfile.sandbox")).toMatch(new RegExp(`^ARG NODE_VERSION=${pinned}$`, "m"));
   expect(NODE_COMPAT_VERSION).toBe(pinned);
-  expect(node24FetchCompatProfile().target.node).toBe(pinned);
+  expect(node26FetchCompatProfile().target.node).toBe(pinned);
   expect(read("packages/runtime/src/scr_lib.c")).toContain(
     `#define SCR_NODE_COMPAT_VERSION "${pinned}"`,
   );

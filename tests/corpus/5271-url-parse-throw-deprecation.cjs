@@ -1,10 +1,6 @@
-// url.parse() under process.throwDeprecation: DEP0169 and DEP0170 are
-// thrown from their own ticks, after the turn's output and in order,
-// instead of being reported, so they reach the 'uncaughtException'
-// handler as DeprecationWarning errors with their codes, and no 'warning'
-// listener sees them. Without a handler the first one ends the process
-// with exit status 1. The program re-runs itself and prints each child's
-// stdout and status.
+// process.throwDeprecation throws DEP0169 on the next tick. Invalid ports
+// throw synchronously. Both reach an uncaughtException handler; neither
+// reaches warning listeners. An unhandled deprecation ends the child.
 "use strict";
 const { spawnSync } = require("child_process");
 const url = require("url");

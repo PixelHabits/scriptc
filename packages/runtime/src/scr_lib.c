@@ -683,7 +683,7 @@ ScrStr *scr_process_arch(void) {
  * is no Node under a compiled binary; this is the version whose semantics
  * SEMANTICS.md verifies the runtime against (divergence 60, the execPath
  * stance: answer for the world that actually exists). */
-#define SCR_NODE_COMPAT_VERSION "24.22.1"
+#define SCR_NODE_COMPAT_VERSION "26.13.0"
 ScrStr *scr_process_versions_node(void) {
   if (!scr_versions_node_str) {
     scr_versions_node_str =
@@ -724,12 +724,45 @@ static void scr_versions_object_cleanup(void) {
 ScrDyn *scr_process_versions(void) {
   if (!scr_versions_object) {
     scr_versions_object = scr_dyn_new_obj();
-    ScrStr *node = scr_process_versions_node();
-    ScrStr *openssl = scr_process_versions_openssl();
-    scr_dyn_obj_set(scr_versions_object, "node", 4, scr_dyn_new_str(node));
-    scr_dyn_obj_set(scr_versions_object, "openssl", 7, scr_dyn_new_str(openssl));
-    scr_str_release(node);
-    scr_str_release(openssl);
+    /* The compatibility target's ordered component identity. */
+    static const char *const fields[][2] = {
+        {"node", "26.13.0"},
+        {"acorn", "8.19.0"},
+        {"ada", "4.0.0"},
+        {"amaro", "1.1.11"},
+        {"ares", "1.34.9"},
+        {"brotli", "1.2.0"},
+        {"cldr", "48.0"},
+        {"icu", "78.3"},
+        {"libffi", "3.8.0"},
+        {"lief", "1.0.0"},
+        {"llhttp", "9.4.3"},
+        {"merve", "1.2.2"},
+        {"modules", "147"},
+        {"napi", "10"},
+        {"nbytes", "0.1.4"},
+        {"ncrypto", "0.0.1"},
+        {"nghttp2", "1.70.0"},
+        {"nghttp3", ""},
+        {"ngtcp2", ""},
+        {"openssl", "3.5.9"},
+        {"simdjson", "5.0.3"},
+        {"simdutf", "7.7.0"},
+        {"sqlite", "3.54.0"},
+        {"tz", "2026e"},
+        {"undici", "8.12.2"},
+        {"unicode", "17.0"},
+        {"uv", "1.52.1"},
+        {"uvwasi", "0.0.23"},
+        {"v8", "14.6.202.34-node.40"},
+        {"zlib", "1.3.2.1-motley-456ae73"},
+        {"zstd", "1.5.7"},
+    };
+    for (size_t i = 0; i < sizeof fields / sizeof fields[0]; i++) {
+      ScrStr *value = scr_str_new(fields[i][1], strlen(fields[i][1]));
+      scr_dyn_obj_set(scr_versions_object, fields[i][0], strlen(fields[i][0]), scr_dyn_new_str(value));
+      scr_str_release(value);
+    }
     for (size_t i = 0; i < scr_dyn_obj_count(scr_versions_object); i++) {
       ScrDynProp prop = scr_dyn_obj_prop_at(scr_versions_object, i);
       scr_dyn_obj_set_attrs_at(scr_versions_object, i, false, prop.enumerable, prop.configurable);
@@ -1003,9 +1036,7 @@ static ScrDyn *scr_env_parse_content(const ScrStr *input, bool ordinary) {
     scr_env_trim(text, &pos, &end);
   }
   free(text);
-  /* Node's std::map orders UTF-8 keys before installing object properties.
-   * Ordinary objects ignore string-valued __proto__ assignments; loading
-   * the native environment retains that name as an ordinary variable. */
+  /* Node's std::map orders UTF-8 keys before defining own properties. */
   size_t count = scr_dyn_obj_count(entries);
   ScrDynProp *sorted = count ? malloc(count * sizeof(*sorted)) : NULL;
   if (count && !sorted) scr_trap("scriptc: out of memory\n");
@@ -1014,7 +1045,6 @@ static ScrDyn *scr_env_parse_content(const ScrStr *input, bool ordinary) {
   ScrDyn *result = ordinary ? scr_dyn_new_obj() : scr_dyn_new_obj_null_proto();
   for (size_t i = 0; i < count; i++) {
     const ScrDynProp *entry = &sorted[i];
-    if (ordinary && entry->key_len == 9 && memcmp(entry->key, "__proto__", 9) == 0) continue;
     if (!ordinary) {
       scr_dyn_obj_set(result, entry->key, entry->key_len, scr_dyn_retain(entry->value));
       continue;
@@ -2898,7 +2928,7 @@ ScrDyn *scr_process_release(void) {
 #define SCR_RELEASE_FILE SCR_RELEASE_PREFIX "node-v" SCR_NODE_COMPAT_VERSION
     static const char *const fields[][2] = {
         {"name", "node"},
-        {"lts", "Krypton"},
+        {"lts", "Lithium"},
         {"sourceUrl", SCR_RELEASE_FILE ".tar.gz"},
         {"headersUrl", SCR_RELEASE_FILE "-headers.tar.gz"},
     };
@@ -6450,6 +6480,7 @@ ScrStats *scr_stats_zero(void) { return scr_stats_new(); }
 
 static SCR_TL ScrDyn *scr_stats_base_proto = NULL;
 static SCR_TL ScrDyn *scr_stats_protos[2] = { NULL, NULL }; /* Stats, BigIntStats */
+static SCR_TL ScrDyn *scr_stats_time_symbols[4];
 
 static const char *const scr_stats_date_names[4] = { "atime", "mtime", "ctime", "birthtime" };
 
@@ -6539,6 +6570,13 @@ SCR_STATS_DATE_ACCESSORS(1)
 SCR_STATS_DATE_ACCESSORS(2)
 SCR_STATS_DATE_ACCESSORS(3)
 #undef SCR_STATS_DATE_ACCESSORS
+
+static ScrDyn *scr_temporal_refused(ScrClosure *closure, ScrDyn *const *args, size_t argc) {
+  (void)closure; (void)args; (void)argc;
+  static const char message[] = SCR_TEMPORAL_NATIVE_ERROR " [SC2020]";
+  scr_throw_error_msg_code(SCR_ERR_ERROR, message, sizeof message - 1, "SC2020");
+  return NULL;
+}
 
 static const ScrDynThunk scr_stats_date_getters[4] = {
   scr_stats_date_get_0, scr_stats_date_get_1, scr_stats_date_get_2, scr_stats_date_get_3,
@@ -6637,6 +6675,10 @@ static ScrDyn *scr_stats_method(ScrDynThunk thunk, uint32_t arity, const char *n
 }
 
 static void scr_stats_protos_teardown(void) {
+  for (size_t i = 0; i < 4; i++) {
+    scr_dyn_release(scr_stats_time_symbols[i]);
+    scr_stats_time_symbols[i] = NULL;
+  }
   for (size_t i = 0; i < 2; i++) {
     if (!scr_stats_protos[i]) continue;
     scr_stats_protos[i]->v.obj.class_name = NULL;
@@ -6678,11 +6720,16 @@ static ScrDyn *scr_stats_prototype(bool bigint) {
   ScrDyn *proto = scr_dyn_new_obj();
   proto->v.obj.class_name = name;
   proto->prototype = scr_dyn_retain(scr_stats_base_proto);
-  scr_stats_define(proto, "constructor", scr_stats_method(scr_stats_constructor, 14, name, 0), NULL, NULL, false);
+  scr_stats_define(proto, "constructor", scr_stats_method(scr_stats_constructor, bigint ? 14 : 18, name, 0), NULL, NULL, false);
   for (int i = 0; i < 4; i++)
     scr_stats_define(proto, scr_stats_date_names[i], NULL,
                      scr_stats_method(scr_stats_date_getters[i], 0, "get", 0),
                      scr_stats_method(scr_stats_date_setters[i], 1, "set", 0), true);
+  static const char *const instant_names[] = { "atimeInstant", "mtimeInstant", "ctimeInstant", "birthtimeInstant" };
+  for (size_t i = 0; i < sizeof instant_names / sizeof instant_names[0]; i++)
+    scr_stats_define(proto, instant_names[i], NULL,
+                     scr_stats_method(scr_temporal_refused, 0, "get", 0),
+                     scr_stats_method(scr_temporal_refused, 1, "set", 0), true);
   scr_dyn_obj_set(proto, "_checkModeProperty", 18,
                   scr_stats_method(bigint ? scr_stats_check_mode_bigint : scr_stats_check_mode_number, 1, NULL, 0));
   scr_stats_protos[bigint] = proto;
@@ -6730,6 +6777,23 @@ ScrDyn *scr_stats_dyn(ScrStats *s, bool bigint) {
     scr_bigint_release(million);
     scr_dyn_obj_set(object, name, (size_t)len, scr_stats_bigint_dyn(ms));
     ns[i] = scr_stats_bigint_dyn(total);
+  }
+  if (!bigint) {
+    static const char *const descriptions[] = {
+      "partialAtimeNs", "partialMtimeNs", "partialCtimeNs", "kPartialBirthtimeNs",
+    };
+    for (size_t i = 0; i < 4; i++) {
+      if (!scr_stats_time_symbols[i]) {
+        ScrStr *description = scr_str_new(descriptions[i], strlen(descriptions[i]));
+        ScrSym *symbol = scr_sym_new(description);
+        scr_stats_time_symbols[i] = scr_dyn_new_symbol(symbol);
+        scr_sym_release(symbol);
+        scr_str_release(description);
+      }
+      ScrDyn *value = scr_dyn_new_num((double)s->nsec[i]);
+      scr_dyn_symbol_key_set(object, scr_stats_time_symbols[i], value);
+      scr_dyn_release(value);
+    }
   }
   for (int i = 0; bigint && i < 4; i++) {
     char name[16];
@@ -8479,7 +8543,7 @@ static bool scr_digest_name_is(const char *name, size_t len, const char *literal
   return true;
 }
 
-/* OpenSSL's names for the digests Node 24 lists in crypto.getHashes(),
+/* OpenSSL's names for the digests Node lists in crypto.getHashes(),
  * with its provider aliases and object identifiers. Lookup is
  * case-insensitive, like OpenSSL's. */
 #define SCR_DIGEST_NAME(name, alg) {name, sizeof name - 1, alg}
@@ -8931,12 +8995,36 @@ static ScrCryptoHash *scr_crypto_hash_alloc(ScrDigestAlg alg, bool hmac,
   return hash;
 }
 
+void (*scr_crypto_dep0198)(void) = NULL;
+
+/* A digest created without outputLength: Node reports DEP0198 when the
+ * algorithm name, lowercased with its first '-' removed, is shake128 or
+ * shake256, so object identifiers do not warn. */
+static void scr_crypto_hash_default_length(const ScrStr *alg) {
+  if (!scr_crypto_dep0198) return;
+  char name[9];
+  size_t n = 0;
+  bool dash = false;
+  for (size_t i = 0; i < alg->len; i++) {
+    char ch = alg->data[i];
+    if (ch == '-' && !dash) {
+      dash = true;
+      continue;
+    }
+    if (n == sizeof name - 1) return;
+    name[n++] = (char)(ch >= 'A' && ch <= 'Z' ? ch + 32 : ch);
+  }
+  name[n] = '\0';
+  if (strcmp(name, "shake128") == 0 || strcmp(name, "shake256") == 0) scr_crypto_dep0198();
+}
+
 ScrCryptoHash *scr_crypto_hash_new(ScrStr *alg) {
   ScrDigestAlg kind;
   if (!scr_hash_alg(alg->data, alg->len, &kind)) {
     scr_crypto_digest_unsupported();
     return NULL;
   }
+  scr_crypto_hash_default_length(alg);
   return scr_crypto_hash_alloc(kind, false, NULL, 0);
 }
 
@@ -9626,18 +9714,33 @@ static bool scr_crypto_cshake_options(const ScrDyn *options, bool *present) {
   return true;
 }
 
-/* OpenSSL's EVP_R_NOT_XOF_OR_INVALID_LENGTH, with Node's library, reason
- * and code properties. */
-static void scr_crypto_not_xof(void) {
-  static const char message[] = "error:030000B2:digital envelope routines::not XOF or invalid length";
-  static const char code[] = "ERR_OSSL_EVP_NOT_XOF_OR_INVALID_LENGTH";
-  ScrStr *text = scr_str_new(message, sizeof message - 1);
+/* An OpenSSL error "error:<packed>:<library>::<reason>" as Node's
+ * CryptoErrorStore reports it, with own library, reason and code
+ * properties. Under a Node message (`message` not NULL) the OpenSSL error
+ * is the error's opensslErrorStack, set first. +1. */
+static ScrError *scr_crypto_openssl_error(const char *message, const char *packed, const char *library,
+                                          const char *reason, const char *code) {
+  char openssl[160];
+  snprintf(openssl, sizeof openssl, "error:%s:%s::%s", packed, library, reason);
+  ScrStr *text = message ? scr_str_new(message, strlen(message)) : scr_str_new(openssl, strlen(openssl));
   ScrError *e = scr_error_new(SCR_ERR_ERROR, text);
   scr_str_release(text);
-  scr_error_set_prop(e, "library", 7, scr_crypto_dyn_str(scr_str_new("digital envelope routines", 25)));
-  scr_error_set_prop(e, "reason", 6, scr_crypto_dyn_str(scr_str_new("not XOF or invalid length", 25)));
+  if (message) {
+    ScrDyn *stack = scr_dyn_new_arr();
+    scr_dyn_arr_push(stack, scr_crypto_dyn_str(scr_str_new(openssl, strlen(openssl))));
+    scr_error_set_prop(e, "opensslErrorStack", 17, stack);
+  }
+  scr_error_set_prop(e, "library", 7, scr_crypto_dyn_str(scr_str_new(library, strlen(library))));
+  scr_error_set_prop(e, "reason", 6, scr_crypto_dyn_str(scr_str_new(reason, strlen(reason))));
   scr_error_set_code(e, code);
-  scr_error_set_prop(e, "code", 4, scr_crypto_dyn_str(scr_str_new(code, sizeof code - 1)));
+  scr_error_set_prop(e, "code", 4, scr_crypto_dyn_str(scr_str_new(code, strlen(code))));
+  return e;
+}
+
+/* OpenSSL's EVP_R_NOT_XOF_OR_INVALID_LENGTH. */
+static void scr_crypto_not_xof(void) {
+  ScrError *e = scr_crypto_openssl_error(NULL, "030000B2", "digital envelope routines", "not XOF or invalid length",
+                                         "ERR_OSSL_EVP_NOT_XOF_OR_INVALID_LENGTH");
   scr_throw_obj(e, &scr_error_retain_v, &scr_error_release_v, scr_error_trace_arg());
 }
 
@@ -9677,6 +9780,7 @@ ScrCryptoHash *scr_crypto_hash_new_opts(ScrStr *alg, ScrDyn *options) {
   }
   ScrCryptoHash *hash = scr_crypto_hash_alloc(kind, false, NULL, 0);
   if (has_length) hash->out_len = (size_t)length;
+  else scr_crypto_hash_default_length(alg);
   return hash;
 }
 
@@ -9771,6 +9875,7 @@ static ScrStr *scr_hash_digest_raw(const ScrStr *alg, const unsigned char *data,
     scr_crypto_hash_digest_unsupported(alg);
     return NULL;
   }
+  scr_crypto_hash_default_length(alg);
   int encoding = scr_crypto_encoding(enc->data, enc->len);
   if (encoding < 0) {
     scr_crypto_encoding_unlowered();
@@ -9812,6 +9917,7 @@ static ScrDyn *scr_hash_oneshot_raw(const ScrStr *alg, const unsigned char *data
     scr_crypto_hash_digest_unsupported(alg);
     return NULL;
   }
+  if (!has_length) scr_crypto_hash_default_length(alg);
   if (cshake) {
     static const char message[] = "Digest options are not supported";
     scr_throw_error_msg(SCR_ERR_ERROR, message, sizeof message - 1);
@@ -10637,11 +10743,11 @@ static ScrBytes *scr_crypto_pbkdf2_raw(const unsigned char *password, size_t pas
 }
 
 /* Argument errors throw. A job that fails, as Node's PBKDF2 job does for
- * an empty key or an XOF digest, returns NULL and sets `failure`, which
- * the synchronous form throws and the callback form passes to the
+ * an empty key or an XOF digest, returns NULL and sets `failure` (+1),
+ * which the synchronous form throws and the callback form passes to the
  * callback. */
 ScrBytes *scr_crypto_pbkdf2_job(ScrBytes *password, ScrBytes *salt, double iterations,
-                                double keylen, ScrStr *digest, const char **failure) {
+                                double keylen, ScrStr *digest, ScrError **failure) {
   *failure = NULL;
   SCR_BYTES_SNAPSHOT(password);
   SCR_BYTES_SNAPSHOT(salt);
@@ -10669,12 +10775,16 @@ ScrBytes *scr_crypto_pbkdf2_job(ScrBytes *password, ScrBytes *salt, double itera
     scr_crypto_invalid_digest(digest);
     return NULL;
   }
+  static const char derivation_failed[] = "PBKDF2 derivation failed";
   if (keylen == 0) {
-    *failure = "Deriving bits failed";
+    ScrStr *text = scr_str_new(derivation_failed, sizeof derivation_failed - 1);
+    *failure = scr_error_new(SCR_ERR_ERROR, text);
+    scr_str_release(text);
     return NULL;
   }
   if (scr_digest_info[alg].xof) {
-    *failure = "error:1C8000B7:Provider routines::xof digests not allowed";
+    *failure = scr_crypto_openssl_error(derivation_failed, "1C8000B7", "Provider routines",
+                                        "xof digests not allowed", "ERR_OSSL_XOF_DIGESTS_NOT_ALLOWED");
     return NULL;
   }
   return scr_crypto_pbkdf2_raw(password->data,
@@ -10685,9 +10795,9 @@ ScrBytes *scr_crypto_pbkdf2_job(ScrBytes *password, ScrBytes *salt, double itera
 
 ScrBytes *scr_crypto_pbkdf2(ScrBytes *password, ScrBytes *salt,
                             double iterations, double keylen, ScrStr *digest) {
-  const char *failure;
+  ScrError *failure;
   ScrBytes *result = scr_crypto_pbkdf2_job(password, salt, iterations, keylen, digest, &failure);
-  if (failure) scr_throw_error_msg(SCR_ERR_ERROR, failure, strlen(failure));
+  if (failure) scr_throw_obj(failure, &scr_error_retain_v, &scr_error_release_v, scr_error_trace_arg());
   return result;
 }
 
@@ -10752,7 +10862,7 @@ ScrBytes *scr_crypto_hkdf_bytes(ScrStr *digest, ScrBytes *ikm, ScrBytes *salt,
   }
   if (scr_digest_info[alg].xof) {
     /* OpenSSL's HKDF refuses an XOF; callers report the empty result as
-     * Node's "Deriving bits failed". */
+     * scr_crypto_hkdf_failure. */
     scr_crypto_zero(prk, sizeof prk);
     scr_crypto_zero(&inner, sizeof inner);
     scr_crypto_zero(&outer, sizeof outer);
@@ -10780,13 +10890,23 @@ ScrBytes *scr_crypto_hkdf_bytes(ScrStr *digest, ScrBytes *ikm, ScrBytes *salt,
   return result;
 }
 
+/* HKDFTraits::DeriveBits's failure, for a zero length or a digest
+ * OpenSSL's HKDF refuses, which queues no OpenSSL error. +1. */
+ScrError *scr_crypto_hkdf_failure(void) {
+  static const char message[] = "HKDF derivation failed";
+  ScrStr *text = scr_str_new(message, sizeof message - 1);
+  ScrError *e = scr_error_new(SCR_ERR_ERROR, text);
+  scr_str_release(text);
+  return e;
+}
+
 ScrDyn *scr_crypto_hkdf(ScrStr *digest, ScrBytes *ikm, ScrBytes *salt,
                        ScrBytes *info, double keylen) {
   ScrBytes *bytes = scr_crypto_hkdf_bytes(digest, ikm, salt, info, keylen);
   if (!bytes) return NULL;
   if (bytes->len == 0) {
     scr_bytes_release(bytes);
-    scr_throw_error_msg(SCR_ERR_ERROR, "Deriving bits failed", 20);
+    scr_throw_obj(scr_crypto_hkdf_failure(), &scr_error_retain_v, &scr_error_release_v, scr_error_trace_arg());
     return NULL;
   }
   ScrDyn *result = scr_array_buffer_from_bytes(bytes);
@@ -13841,6 +13961,7 @@ static const struct {
 static ScrDyn *scr_native_date_invoke(void *ptr, ScrDyn *self, const char *method,
     ScrDyn *const *args, size_t argc, const char *what) {
   (void)self; (void)what;
+  if (!strcmp(method, "toTemporalInstant")) return scr_temporal_refused(NULL, NULL, 0);
   double ms = ((ScrDate *)ptr)->ms;
   if (!strcmp(method, "getTime") || !strcmp(method, "valueOf")) return scr_dyn_new_num(ms);
   if (!strcmp(method, "toString") || !strcmp(method, scr_date_to_date_string_name) ||
@@ -13960,7 +14081,7 @@ ScrDyn *scr_dyn_native_date_new_fields(const ScrDyn *arguments) {
 
 /* The Date.prototype methods scr_native_date_invoke answers. */
 static const char *const scr_native_date_methods[] = {
-  "getTime", "valueOf", "toISOString", "toJSON", "toString", scr_date_to_date_string_name,
+  "getTime", "valueOf", "toISOString", "toJSON", "toString", "toTemporalInstant", scr_date_to_date_string_name,
   scr_date_to_time_string_name, "toUTCString",
   "getFullYear", "getUTCFullYear", "getMonth",
   "getUTCMonth", "getDate", "getUTCDate", "getDay", "getUTCDay", "getHours", "getUTCHours",
@@ -14101,8 +14222,9 @@ ScrDyn *scr_dyn_native_date_from_ms(double ms) {
 }
 
 /* crypto.getRandomValues(typedArray) (WebCrypto, also node:crypto's
- * export): integer typed arrays only (Node's TypeMismatchError DOMException
- * for float arrays, DataViews and every other value), at most 65536 bytes
+ * export): Web IDL's ArrayBufferView conversion (a TypeError for any other
+ * value), then integer typed arrays only (Node's TypeMismatchError
+ * DOMException for float arrays and DataViews), at most 65536 bytes
  * (QuotaExceededError), filled in place and returned. Nothing on an
  * existing path calls these. They stay at the end of the unit: clang emits
  * a static helper (scr_random_write) where its first emitted caller
@@ -14138,9 +14260,8 @@ ScrDyn *scr_crypto_get_random_values_dyn(ScrDyn *value) {
     return result ? scr_dyn_retain(value) : NULL;
   }
   if (value->kind != SCR_DYN_BYTES) {
-    static const char mismatch[] = "TypeMismatchError";
-    static const char mismatch_msg[] = "The data argument must be an integer-type TypedArray";
-    scr_throw_domex(mismatch, mismatch_msg);
+    static const char message[] = "Failed to execute 'getRandomValues' on 'Crypto': 1st argument is not an ArrayBufferView.";
+    scr_throw_error_msg_code(SCR_ERR_TYPE, message, sizeof message - 1, "ERR_INVALID_ARG_TYPE");
     return NULL;
   }
   ScrBytes *filled = scr_crypto_get_random_values(value->v.bytes);

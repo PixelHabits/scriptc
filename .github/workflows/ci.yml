@@ -829,7 +829,7 @@ jobs:
         run: pnpm test tests/harness/runtime-tree-shaking.test.ts
       - name: Debian 12 glibc 2.36 runtime-pack smoke
         run: |
-          docker run --rm --volume "$GITHUB_WORKSPACE:/work:ro" --workdir /work node:24-bookworm-slim sh -ec '
+          docker run --rm --volume "$GITHUB_WORKSPACE:/work:ro" --workdir /work node:26.13.0-bookworm-slim sh -ec '
             apt-get update
             apt-get install --yes --no-install-recommends clang
             SCRIPTC_NO_CACHE=1 SCRIPTC_LEGACY_C_PIPELINE=0 node packages/cli/dist/main.js build tests/corpus/001-hello.ts -o /tmp/hello

@@ -175,7 +175,6 @@ static const ScrDynHandleOps scr_tcd_encoder_ops = {
     .set = scr_tcd_codec_set,
     .inspect_view = scr_tcd_encoder_inspect_view,
     .inspect_view_bare = true,
-    .inspect_bracketed_past_depth = true,
     .inspect_custom_only = true,
     .json_empty_object = true,
     .methods = scr_tcd_encoder_methods,

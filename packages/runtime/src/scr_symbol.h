@@ -1,12 +1,11 @@
-/* scriptc runtime — ES Symbol values (scr_symbol.c). Included by
+/* scriptc runtime — ES Symbol values. Included by
  * scr_runtime.h, which says where new declarations go. */
 #ifndef SCR_SYMBOL_H
 #define SCR_SYMBOL_H
 
 #include "scr_string.h"
 
-/* ── ES Symbol values (scr_symbol.c — linked only when the IR uses the
- * symbol surface) ─────────────────────────────────────────────────────
+/* ── ES Symbol values ─────────────────────────────────────────────────
  * A symbol is a runtime-unique IDENTITY: the pointer IS the identity
  * (`===` is a pointer compare; every scr_sym_new allocation is a distinct
  * symbol even for equal descriptions — JS exactly). Heap, refcounted,
@@ -16,7 +15,19 @@
  * evicted; an atexit cleanup (registered at first use, so LIFO runs it
  * BEFORE scr_init's RC audit) releases the chain so audited string counts
  * stay exact. None of these throw. */
+typedef struct ScrDyn ScrDyn;
 typedef struct ScrSym ScrSym;
+
+struct ScrSym {
+  size_t rc;
+  ScrStr *desc;    /* owned; NULL = no description (Symbol()) */
+  ScrStr *reg_key; /* owned; non-NULL exactly for Symbol.for symbols */
+  struct ScrSym *reg_next; /* the registry's intrusive chain */
+  /* The symbol's checked-dynamic box while one is alive (not retained: the
+   * box retains the symbol and clears this when it is freed), shared by
+   * every conversion of the symbol to a checked value. */
+  ScrDyn *box;
+};
 
 ScrSym *scr_sym_new(ScrStr *desc); /* borrows desc (NULL = no description); +1 fresh identity */
 ScrSym *scr_sym_for(ScrStr *key);  /* borrows key; +1 on the interned per-key symbol */

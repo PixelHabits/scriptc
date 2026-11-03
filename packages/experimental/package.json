@@ -27,6 +27,6 @@
     "@scriptc/threads": "workspace:*"
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=26.13.0"
   }
 }

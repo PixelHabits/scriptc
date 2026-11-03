@@ -242,8 +242,8 @@ export function programPatchesStdio(lowerer: Lowerer): boolean {
 
 /** The pinned Node release the runtime reports as process.versions.node
  * (packages/runtime/src/scr_lib.c SCR_NODE_COMPAT_VERSION, kept equal to
- * internal/compatibility/node-v24.json by test/node-pin.test.ts). */
-export const NODE_COMPAT_VERSION = "24.22.1";
+ * internal/compatibility/node-v26.json by test/node-pin.test.ts). */
+export const NODE_COMPAT_VERSION = "26.13.0";
 
 /** Method calls on first-class process-stream receivers (procStream —
  * a WritableStream-typed value like prefixStream's `output` param):
@@ -336,16 +336,8 @@ export function isOptionalProcessStreamProperty(
   return lowerer.mapTypeOf(lowerer.typeOf(expr.expression))?.kind === "procStream";
 }
 
-/** The process.versions entries @types/node declares as plain strings
- * that the runtime's versions object (node and openssl only) lacks. */
-const ABSENT_DECLARED_VERSIONS: ReadonlySet<string> = new Set([
-  "http_parser",
-  "v8",
-  "ares",
-  "uv",
-  "zlib",
-  "modules",
-]);
+/** The obsolete declaration @types/node still requires as a string. */
+const ABSENT_DECLARED_VERSIONS: ReadonlySet<string> = new Set(["http_parser"]);
 
 /** A process.versions member read whose declaration promises a string the
  * runtime does not have. @types/node declares the entries above as plain
@@ -693,8 +685,7 @@ export function lowerProcessProperty(
       STRING,
     );
   }
-  // Other components begin absent. Consult the same object even for the
-  // capability probes: users can define or delete their own entries.
+  // Read component identity through the stable object so property edits remain visible.
   if (
     ts.isPropertyAccessExpression(expr.expression) &&
     lowerer.stdlibGlobalMember(expr.expression, "process") === "versions"

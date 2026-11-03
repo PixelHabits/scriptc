@@ -397,6 +397,22 @@ console.log(
   abortedRequestBody.locked,
 );
 
+const erroredRequestBody = new ReadableStream<Uint8Array>({
+  pull(controller) {
+    controller.error(new Error("upload failed"));
+  },
+});
+try {
+  await fetch(`${process.argv[2]}/post-echo`, {
+    method: "POST",
+    body: erroredRequestBody,
+    duplex: "half",
+  });
+} catch (error) {
+  console.log("errored request:", (error as Error).name);
+}
+console.log("errored request locked:", erroredRequestBody.locked);
+
 const temporaryRead = await new ReadableStream<Uint8Array>({
   start(controller) {
     controller.enqueue(Buffer.from("temporary"));
@@ -1409,10 +1425,11 @@ console.log(
   delayedRequestPullCount,
 );
 
+const stream302Body = ReadableStream.from([Buffer.from("redirected stream")]);
 try {
   await fetch(`${process.argv[2]}/redirect-stream-302`, {
     method: "POST",
-    body: ReadableStream.from([Buffer.from("redirected stream")]),
+    body: stream302Body,
     duplex: "half",
   });
   console.log("stream 302 redirect unexpectedly followed");
@@ -1420,13 +1437,16 @@ try {
   const caught = error as Error;
   console.log("stream 302 redirect:", caught.name, caught.message);
 }
+console.log("stream 302 request locked:", stream302Body.locked);
 
+const stream303Body = ReadableStream.from([Buffer.from("redirected stream")]);
 const stream303 = await fetch(`${process.argv[2]}/redirect-stream-303`, {
   method: "POST",
-  body: ReadableStream.from([Buffer.from("redirected stream")]),
+  body: stream303Body,
   duplex: "half",
 });
 console.log("stream 303 redirect:", await stream303.json());
+console.log("stream 303 request locked:", stream303Body.locked);
 
 const matchedStreamLength = await fetch(`${process.argv[2]}/post-echo`, {
   method: "POST",

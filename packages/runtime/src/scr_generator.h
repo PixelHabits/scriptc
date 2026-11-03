@@ -230,27 +230,36 @@ typedef struct ScrFetchReadSink {
   void (*chunk)(void *ctx, ScrDyn *value);
   void (*close)(void *ctx);
   void (*error)(void *ctx, ScrDyn *reason);
+  /* An owned context is released if its request is abandoned. A traced
+   * context has a cycle header and is visited by the reader. */
+  void (*release)(void *ctx);
+  bool traced;
 } ScrFetchReadSink;
 /* Queue a sink read request on a reader handle (borrowed). false with a
  * TypeError pending for a value that is not a reader or a released one. */
 bool scr_fetch_reader_read_into(ScrDyn *reader, const ScrFetchReadSink *sink, void *ctx);
+/* Remove an adapter's pending sink requests without running their steps.
+ * Sink contexts are borrowed; their owner discards reads before destruction. */
+void scr_fetch_reader_discard_reads(ScrDyn *reader, void *ctx);
 /* What the fetch unit reaches of checked-dynamic web streams
  * (scr_webstreams.c installs it); NULL in programs without them. */
 typedef struct ScrWebStreamBridge {
   /* scr_fetch_reader_read_into for one of their readers. */
   bool (*reader_read_into)(ScrDyn *reader, const ScrFetchReadSink *sink, void *ctx);
+  void (*reader_discard_reads)(ScrDyn *reader, void *ctx);
   /* Whether a ReadableStream is locked or disturbed, which makes it
    * unusable as a body. */
   bool (*unusable)(const ScrDyn *stream);
   /* Whether a ReadableStream is disturbed: a read, a cancel or a pipe
    * has started on it. */
   bool (*disturbed)(const ScrDyn *stream);
+  ScrDyn *(*clone_body)(ScrDyn *stream);
 } ScrWebStreamBridge;
 extern SCR_TL const ScrWebStreamBridge *scr_web_stream_bridge;
 /* The read side of a stream another unit implements, which
  * scr_webstream_readable_over reads: read_into queues one read request on
  * it (false with the exception pending), cancel cancels it (+1 promise),
- * and release drops the context. */
+ * and release drops the context, which carries a cycle header. */
 typedef struct ScrWebStreamSource {
   bool (*read_into)(void *ctx, const ScrFetchReadSink *sink, void *sink_ctx);
   ScrPromise *(*cancel)(void *ctx, ScrDyn *reason);

@@ -17,7 +17,7 @@
     "arm64"
   ],
   "files": [
-    "libnode.137.dylib",
+    "libnode.147.dylib",
     "libscr_node_bridge.dylib",
     "manifest.json",
     "LICENSE",

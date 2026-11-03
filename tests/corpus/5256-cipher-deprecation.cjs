@@ -1,32 +1,47 @@
-// DEP0182: a GCM decipher created without authTagLength warns when
-// setAuthTag receives a tag shorter than 16 bytes. The warning is reported
-// on the next tick and at most once per process; specifying authTagLength
-// or passing a 16-byte tag does not warn. The program re-runs itself and prints the child's output with
-// process ids normalized. A plain warning is emitted first so that the
-// one-time trace hint belongs to it.
+// A GCM decipher created without authTagLength takes only a 16-byte tag:
+// setAuthTag throws for a shorter one. authTagLength admits the shorter
+// tag, and no deprecation warning is reported for any of them.
 "use strict";
-const { spawnSync } = require("child_process");
 const crypto = require("crypto");
 
-if (process.argv[2] === "child") {
-  process.emitWarning("first warning");
-  const key = Buffer.alloc(16, 1);
-  const iv = Buffer.alloc(12, 2);
-  const cipher = crypto.createCipheriv("aes-128-gcm", key, iv, { authTagLength: 8 });
-  const ciphertext = Buffer.concat([cipher.update("short tag"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  const decipher = crypto.createDecipheriv("aes-128-gcm", key, iv);
-  decipher.setAuthTag(tag);
-  console.log(Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString());
-  const second = crypto.createDecipheriv("aes-128-gcm", key, iv);
-  second.setAuthTag(tag.subarray(0, 4));
-  const specified = crypto.createDecipheriv("aes-128-gcm", key, iv, { authTagLength: 8 });
-  specified.setAuthTag(tag);
-  crypto.createDecipheriv("aes-128-gcm", key, iv).setAuthTag(Buffer.alloc(16));
-  console.log("end of turn");
-} else {
-  const child = spawnSync(process.execPath, [process.argv[1], "child"], { encoding: "utf8" });
-  console.log(`status: ${child.status}`);
-  console.log(child.stdout);
-  console.log(child.stderr.replace(/\(node:\d+\)/g, "(node:<pid>)"));
+const key = Buffer.alloc(16, 1);
+const iv = Buffer.alloc(12, 2);
+
+function attempt(label, run) {
+  try {
+    console.log(label, run());
+  } catch (e) {
+    console.log(label, e.name, e.code, e.message);
+  }
 }
+
+const short = crypto.createCipheriv("aes-128-gcm", key, iv, { authTagLength: 8 });
+const shortText = Buffer.concat([short.update("short tag"), short.final()]);
+const shortTag = short.getAuthTag();
+const full = crypto.createCipheriv("aes-128-gcm", key, iv);
+const fullText = Buffer.concat([full.update("full tag"), full.final()]);
+const fullTag = full.getAuthTag();
+console.log("tag lengths", shortTag.length, fullTag.length);
+
+attempt("8-byte tag", () => crypto.createDecipheriv("aes-128-gcm", key, iv).setAuthTag(shortTag) && "set");
+attempt("4-byte tag", () => crypto.createDecipheriv("aes-128-gcm", key, iv).setAuthTag(shortTag.subarray(0, 4)) && "set");
+attempt("17-byte tag", () => crypto.createDecipheriv("aes-128-gcm", key, iv).setAuthTag(Buffer.alloc(17)) && "set");
+attempt("8-byte tag with authTagLength", () => {
+  const decipher = crypto.createDecipheriv("aes-128-gcm", key, iv, { authTagLength: 8 });
+  decipher.setAuthTag(shortTag);
+  return Buffer.concat([decipher.update(shortText), decipher.final()]).toString();
+});
+attempt("16-byte tag with authTagLength 8", () =>
+  crypto.createDecipheriv("aes-128-gcm", key, iv, { authTagLength: 8 }).setAuthTag(fullTag) && "set",
+);
+attempt("16-byte tag", () => {
+  const decipher = crypto.createDecipheriv("aes-128-gcm", key, iv);
+  decipher.setAuthTag(fullTag);
+  return Buffer.concat([decipher.update(fullText), decipher.final()]).toString();
+});
+attempt("setAuthTag twice", () => {
+  const decipher = crypto.createDecipheriv("aes-128-gcm", key, iv);
+  decipher.setAuthTag(fullTag);
+  return decipher.setAuthTag(fullTag) && "set";
+});
+setTimeout(() => console.log("end of turn"), 0);

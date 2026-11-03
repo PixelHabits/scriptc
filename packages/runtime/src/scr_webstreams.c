@@ -548,8 +548,8 @@ struct WsReadRequest {
 
 static ScrDyn *ws_read_result(ScrDyn *value, bool done) {
   ScrDyn *result = scr_dyn_new_obj();
-  scr_dyn_obj_set(result, "value", 5, scr_dyn_retain(value));
   scr_dyn_obj_set(result, "done", 4, scr_dyn_new_bool(done));
+  scr_dyn_obj_set(result, "value", 5, scr_dyn_retain(value));
   return result;
 }
 
@@ -720,6 +720,14 @@ static void ws_rcontroller_drop(void *obj, bool gc) {
 
 static const WsObjType ws_rcontroller_type = {ws_rcontroller_trace, ws_rcontroller_drop, "ReadableStreamDefaultController", ws_rcontroller_accessors};
 
+typedef struct WsSinkRequest {
+  WsReadRequest base;
+  const ScrFetchReadSink *sink;
+  void *sink_ctx;
+} WsSinkRequest;
+
+static const WsReadRequestOps ws_sink_request_ops;
+
 static void ws_reader_trace(void *obj, ScrTraceVisit visit, void *ctx) {
   WsReader *r = obj;
   ws_visit(r->stream, visit, ctx);
@@ -728,6 +736,10 @@ static void ws_reader_trace(void *obj, ScrTraceVisit visit, void *ctx) {
   for (WsReadRequest *q = r->head; q; q = q->next) {
     ws_visit(q->promise, visit, ctx);
     ws_visit(q->ctx, visit, ctx);
+    if (q->ops == &ws_sink_request_ops) {
+      WsSinkRequest *sink = (WsSinkRequest *)q;
+      if (sink->sink->traced) ws_visit(sink->sink_ctx, visit, ctx);
+    }
   }
 }
 
@@ -738,6 +750,11 @@ static void ws_reader_drop(void *obj, bool gc) {
     r->head = q->next;
     ws_drop_promise(q->promise, gc);
     ws_drop_obj(q->ctx, gc);
+    if (q->ops == &ws_sink_request_ops) {
+      WsSinkRequest *sink = (WsSinkRequest *)q;
+      if (sink->sink->release && (!gc || !sink->sink->traced))
+        sink->sink->release(sink->sink_ctx);
+    }
     free(q);
   }
   ws_drop_promise(r->closed, gc);
@@ -1284,6 +1301,7 @@ struct WsTee {
   WsObj obj;
   WsReader *reader;
   bool reading, canceled1, canceled2;
+  bool clone_branch2;
   ScrDyn *reason1, *reason2;
   WsReadable *branch1, *branch2; /* +1 each */
   WsDeferred cancel_promise;
@@ -1326,10 +1344,13 @@ static void ws_tee_forward_chunk(void *ctx, ScrDyn *unused) {
   t->reading = false;
   ScrDyn *value = t->pending_chunk;
   t->pending_chunk = NULL;
-  if (!t->canceled1) ws_rcontroller_enqueue(t->branch1->controller, value);
-  if (scr_exc_pending()) scr_exc_clear();
-  if (!t->canceled2) ws_rcontroller_enqueue(t->branch2->controller, value);
-  if (scr_exc_pending()) scr_exc_clear();
+  ScrDyn *copy = !t->canceled2 && t->clone_branch2
+      ? scr_structured_clone(value, scr_dyn_undefined()) : scr_dyn_retain(value);
+  if (copy) {
+    if (!t->canceled1) ws_rcontroller_enqueue(t->branch1->controller, value);
+    if (!t->canceled2 && !scr_exc_pending()) ws_rcontroller_enqueue(t->branch2->controller, copy);
+    scr_dyn_release(copy);
+  }
   scr_dyn_release(value);
 }
 
@@ -1427,11 +1448,12 @@ static void ws_tee_source_error(WsTee *t, ScrDyn *error) {
 }
 
 /* readableStreamDefaultTee: false with the exception pending. */
-static bool ws_readable_tee(WsReadable *s, WsReadable **out1, WsReadable **out2) {
+static bool ws_readable_tee(WsReadable *s, WsReadable **out1, WsReadable **out2, bool clone_branch2) {
   WsReader *reader = ws_reader_new(s);
   if (!reader) return false;
   WsTee *t = ws_obj_new(sizeof *t, &ws_tee_type);
   t->reader = reader;
+  t->clone_branch2 = clone_branch2;
   ws_deferred_init(&t->cancel_promise);
   /* Each branch's controller holds the tee as its source until it clears
    * its algorithms, and the tee holds the branches. */
@@ -1700,16 +1722,19 @@ typedef struct WsOver {
   void *ctx; /* released through source->release */
 } WsOver;
 
-static void ws_over_trace(void *obj, ScrTraceVisit visit, void *ctx) { ws_visit(((WsOver *)obj)->stream, visit, ctx); }
+static void ws_over_trace(void *obj, ScrTraceVisit visit, void *ctx) {
+  WsOver *o = obj;
+  ws_visit(o->stream, visit, ctx);
+  ws_visit(o->ctx, visit, ctx);
+}
 
 static void ws_over_drop(void *obj, bool gc) {
   WsOver *o = obj;
   ws_drop_obj(o->stream, gc);
   o->stream = NULL;
-  /* The context is the other unit's, outside the collector. */
   void *ctx = o->ctx;
   o->ctx = NULL;
-  if (ctx) o->source->release(ctx);
+  if (ctx && !gc) o->source->release(ctx);
 }
 
 static const WsObjType ws_over_type = {ws_over_trace, ws_over_drop};
@@ -1749,7 +1774,8 @@ static void ws_over_error(void *ctx, ScrDyn *reason) {
   ws_release(o);
 }
 
-static const ScrFetchReadSink ws_over_sink = {ws_over_chunk, ws_over_close, ws_over_error};
+static const ScrFetchReadSink ws_over_sink = {
+    ws_over_chunk, ws_over_close, ws_over_error, ws_release, true};
 
 static ScrDyn *ws_over_pull(void *ctx, WsRController *c) {
   (void)c;
@@ -2091,11 +2117,6 @@ static ScrDyn *ws_readable_values(WsReadable *s, ScrDyn *options) {
 
 /* ── sink read requests (Readable.fromWeb) ─────────────────────────── */
 
-typedef struct WsSinkRequest {
-  WsReadRequest base;
-  const ScrFetchReadSink *sink;
-  void *sink_ctx;
-} WsSinkRequest;
 
 static void ws_sink_chunk(WsReadRequest *q, ScrDyn *chunk) {
   WsSinkRequest *r = (WsSinkRequest *)q;
@@ -2131,6 +2152,25 @@ static bool ws_reader_read_into(ScrDyn *reader, const ScrFetchReadSink *sink, vo
   return true;
 }
 
+static void ws_reader_discard_reads(ScrDyn *reader, void *ctx) {
+  WsReader *r = reader->v.handle.ptr;
+  WsReadRequest **at = &r->head;
+  r->tail = NULL;
+  while (*at) {
+    WsReadRequest *q = *at;
+    if (q->ops == &ws_sink_request_ops && ((WsSinkRequest *)q)->sink_ctx == ctx) {
+      r->requests--;
+      *at = q->next;
+      WsSinkRequest *sink = (WsSinkRequest *)q;
+      if (sink->sink->release) sink->sink->release(sink->sink_ctx);
+      free(q);
+    } else {
+      r->tail = q;
+      at = &q->next;
+    }
+  }
+}
+
 /* A stream that cannot be a Response or Request body. */
 static bool ws_readable_unusable(const ScrDyn *stream) {
   WsReadable *s = ws_stream_of(stream);
@@ -2142,7 +2182,18 @@ static bool ws_readable_disturbed(const ScrDyn *stream) {
   return s && s->disturbed;
 }
 
-static const ScrWebStreamBridge ws_fetch_bridge = {ws_reader_read_into, ws_readable_unusable, ws_readable_disturbed};
+static ScrDyn *ws_clone_body(ScrDyn *stream) {
+  WsReadable *a, *b;
+  if (!ws_readable_tee(ws_stream_of(stream), &a, &b, true)) return NULL;
+  ScrDyn *pair = scr_dyn_new_arr();
+  scr_dyn_arr_push(pair, ws_stream_box(a));
+  scr_dyn_arr_push(pair, ws_stream_box(b));
+  ws_readable_release(a);
+  ws_readable_release(b);
+  return pair;
+}
+
+static const ScrWebStreamBridge ws_fetch_bridge = {ws_reader_read_into, ws_reader_discard_reads, ws_readable_unusable, ws_readable_disturbed, ws_clone_body};
 
 /* ── WritableStream (lib/internal/webstreams/writablestream.js) ──── */
 
@@ -4302,7 +4353,7 @@ static ScrDyn *ws_readable_method(void *ptr, ScrDyn *self, const char *method, S
   }
   if (ws_name(method, len, "tee")) {
     WsReadable *a, *b;
-    if (!ws_readable_tee(s, &a, &b)) return NULL;
+    if (!ws_readable_tee(s, &a, &b, false)) return NULL;
     ScrDyn *pair = scr_dyn_new_arr();
     scr_dyn_arr_push(pair, ws_stream_box(a));
     scr_dyn_arr_push(pair, ws_stream_box(b));

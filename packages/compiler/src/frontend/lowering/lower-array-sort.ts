@@ -144,11 +144,11 @@ function distinctNodes(body: IrStmt[]): IrStmt[] {
  * `f(x, y) < 0`, so the comparator sees Node's calls in Node's order. Every
  * callback still uses ordinary IR exception/ownership handling; the
  * caller's array is only written after sorting succeeds. */
-function timSort(b: SortIr, src: SortLocal, n: IrExpr, less: Less): IrStmt[] {
-  return [b.branch(b.lt(b.num(1), n), timSortBody(b, src, n, less))];
+function timSort(b: SortIr, src: SortLocal, n: IrExpr, less: Less, copy: boolean): IrStmt[] {
+  return [b.branch(b.lt(b.num(1), n), timSortBody(b, src, n, less, copy))];
 }
 
-function timSortBody(b: SortIr, src: SortLocal, n: IrExpr, less: Less): IrStmt[] {
+function timSortBody(b: SortIr, src: SortLocal, n: IrExpr, less: Less, copy: boolean): IrStmt[] {
   const elem = src.type.kind === "array" ? src.type.elem : F64;
   const loc = b.loc;
   let labels = 0;
@@ -686,7 +686,7 @@ function timSortBody(b: SortIr, src: SortLocal, n: IrExpr, less: Less): IrStmt[]
     b.bind(low, zero),
     b.bind(remaining, n),
     b.while(b.lt(zero, remaining), [
-      ...countRun,
+      ...(copy ? countRun : [b.branch(b.lt(n, b.num(8)), [b.assign(length, one)], countRun)]),
       b.branch(b.lt(length, minRun), insertion),
       b.set(runBase, runs, low),
       b.set(runLen, runs, length),
@@ -1066,7 +1066,7 @@ export function buildArraySortFn(
             kind: "exprStmt" as const,
             expr: {
               kind: "arrIntrinsic" as const,
-              method: "sortValues" as const,
+              method: copyFirst ? ("sortValuesCopy" as const) : ("sortValues" as const),
               receiver: src,
               args: [valueCount, f, ...keyArgs],
               type: VOID,
@@ -1075,7 +1075,7 @@ export function buildArraySortFn(
             loc,
           },
         ]
-      : timSort(b, src, valueCount, less)),
+      : timSort(b, src, valueCount, less, copyFirst)),
     ...(copyFirst
       ? []
       : [b.loop(index, b.num(0), valueCount, [b.set(a, index, b.at(src, index))])]),

@@ -39,7 +39,7 @@ import { InternalCompilerError } from "../errors.js";
  * byte-deterministic: entries sort by id, keys are emitted in one fixed
  * order, and the output carries no timestamps or absolute paths. */
 import { FENCE_CODES, UNSUPPORTED, webAssemblyDiag } from "../diagnostics/diagnostic.js";
-import { node24FetchCompatProfile } from "../compat/fetch-profile.js";
+import { node26FetchCompatProfile } from "../compat/fetch-profile.js";
 import { SUPPORTED_BUILTIN_MODULES, SUPPORTED_NODE_MODULES } from "../frontend/builtin-modules.js";
 import {
   ambientSurfaceFns,
@@ -89,7 +89,7 @@ export const MANIFEST_SCHEMA_VERSION = 2;
  * just as load-bearing — what it deliberately leaves out, so absence is
  * never read as a support claim in either direction. */
 function coverageNotes(): string[] {
-  const fetchTarget = node24FetchCompatProfile().target;
+  const fetchTarget = node26FetchCompatProfile().target;
   return [
     "Entries are projected mechanically from the compiler's own decision tables: the diagnostics registry, the unsupported-syntax dispatch tables, the stdlib and node-builtin lowering tables, and the supported-builtin-module list. Nothing is hand-maintained; the manifest regenerates byte-identically from the source tree at this version.",
     "Absence from this manifest means 'not projected', never 'unsupported'. Surfaces lowered through dedicated code paths rather than tables are not yet projected: console, JSON, Promise/async and the timer surface, the net/http/tls/https/dgram/dns/assert/test/stream/readline module member surfaces, template literals, the regex slice, global functions (parseInt, parseFloat, isNaN, isFinite), and the process surface outside its ambient slice.",
@@ -462,7 +462,7 @@ export function generateSurfaceManifest(compilerVersion: string): SurfaceManifes
   }
 
   // ── fetch/Web platform: one explicit, versioned compatibility profile ─
-  const fetchProfile = node24FetchCompatProfile();
+  const fetchProfile = node26FetchCompatProfile();
   const fetchTarget = `Node ${fetchProfile.target.node} / Undici ${fetchProfile.target.undici}`;
   for (const operation of fetchProfile.operations) {
     const evidence = operation.evidence.map((item) =>

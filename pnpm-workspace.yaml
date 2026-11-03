@@ -21,4 +21,5 @@ allowBuilds:
 overrides:
   "@napi-rs/wasm-runtime": "1.1.6"
 patchedDependencies:
+  typescript@5.9.3: patches/typescript@5.9.3.patch
   vitest@3.2.7: patches/vitest@3.2.7.patch

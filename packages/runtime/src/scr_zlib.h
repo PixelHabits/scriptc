@@ -70,6 +70,7 @@ typedef struct {
    * scr_zlib_options_drop frees otherwise. */
   void *codec_state;
   void (*codec_state_free)(void *state);
+  void (*set_source_size)(void *state, size_t size);
 } ScrZlibOptions;
 bool scr_zlib_options_parse(int mode, const ScrDyn *opts, ScrZlibOptions *out);
 void scr_zlib_options_drop(ScrZlibOptions *o);

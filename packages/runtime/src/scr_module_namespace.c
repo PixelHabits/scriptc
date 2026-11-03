@@ -67,21 +67,8 @@ static ScrDyn *scr_module_namespace_get(void *handle, const char *key, size_t le
 
 static bool scr_module_namespace_set(void *handle, const char *key, size_t length, const ScrDyn *value) {
   (void)value;
-  ScrModuleNamespace *ns = handle;
-  ScrJsonBuf text;
-  scr_jb_init(&text);
-  if (scr_module_namespace_has(ns, key, length)) {
-    scr_jb_puts(&text, "Cannot assign to read only property '");
-    scr_jb_write(&text, key, length);
-    scr_jb_puts(&text, "' of object '[object Module]'");
-  } else {
-    scr_jb_puts(&text, "Cannot add property ");
-    scr_jb_write(&text, key, length);
-    scr_jb_puts(&text, ", object is not extensible");
-  }
-  ScrStr *message = scr_jb_finish(&text);
-  scr_throw_error_msg(SCR_ERR_TYPE, message->data, message->len);
-  scr_str_release(message);
+  (void)handle;
+  scr_module_namespace_throw_write(key, length);
   return true;
 }
 

@@ -20,7 +20,7 @@
     "glibc"
   ],
   "files": [
-    "libnode.so.137",
+    "libnode.so.147",
     "libscr_node_bridge.so",
     "manifest.json",
     "LICENSE",

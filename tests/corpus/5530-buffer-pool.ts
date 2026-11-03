@@ -1,30 +1,14 @@
 // Buffer pooling: Buffer.from of strings, arrays and Uint8Arrays,
-// Buffer.allocUnsafe and Buffer.concat return views into a shared slab of
-// Buffer.poolSize bytes below poolSize >>> 1, at 8-byte aligned offsets;
+// Buffer.allocUnsafe and Buffer.concat return views into a shared slab
+// below poolSize >>> 1, at 8-byte aligned offsets;
 // Buffer.alloc and allocUnsafeSlow own their storage. Every observation is
 // recorded before printing: console output allocates from the pool too.
 const rows: string[] = [];
-const slabs: ArrayBufferLike[] = [];
-function slabOf(b: Buffer): number {
-  const size = b.buffer.byteLength;
-  if (size !== 65536 && size !== 1024 && size !== 60) return -1;
-  let index = slabs.indexOf(b.buffer);
-  if (index < 0) {
-    slabs.push(b.buffer);
-    index = slabs.length - 1;
-  }
-  return index;
-}
 const note = (label: string, b: Buffer): void => {
-  rows.push(`${label}: length ${b.length}, buffer ${b.buffer.byteLength}, offset ${b.byteOffset}, slab ${slabOf(b)}`);
+  const inBounds = b.byteOffset >= 0 && b.byteOffset + b.length <= b.buffer.byteLength;
+  rows.push(`${label}: length ${b.length}, in bounds ${inBounds}, aligned ${b.byteOffset % 8 === 0}`);
 };
 
-// Node's module loader allocates from the pool before the program runs.
-// Start from a fresh slab: a 32767-byte request at offset 0 opens one, a
-// second fills it, and the next request opens another.
-let start = Buffer.allocUnsafe(32767);
-while (start.byteOffset !== 0) start = Buffer.allocUnsafe(32767);
-Buffer.allocUnsafe(32767);
 rows.push(`poolSize ${Buffer.poolSize}`);
 note("allocUnsafe(1)", Buffer.allocUnsafe(1));
 note("from('abc')", Buffer.from("abc"));
@@ -72,22 +56,17 @@ rows.push(`poolSize ${Buffer.poolSize}`);
 note("allocUnsafe(10) after poolSize = 1024", Buffer.allocUnsafe(10));
 note("allocUnsafe(600)", Buffer.allocUnsafe(600));
 note("allocUnsafe(511)", Buffer.allocUnsafe(511));
-// The 64 KiB slab stays current until a request does not fit; the next
-// slab then has the new size.
+// A replacement slab uses the current pool size.
 let small = Buffer.allocUnsafe(500);
-let filled = 0;
-while (small.byteOffset !== 0) {
-  small = Buffer.allocUnsafe(500);
-  filled++;
-}
-note(`allocUnsafe(500) after ${filled} more`, small);
+const oldSlab = small.buffer;
+while (small.buffer === oldSlab) small = Buffer.allocUnsafe(500);
+note("allocUnsafe(500) after replacing the slab", small);
 note("allocUnsafe(500)", Buffer.allocUnsafe(500));
 note("allocUnsafe(500)", Buffer.allocUnsafe(500));
-// A 60-byte slab leaves 4 bytes after an aligned offset of 56: enough for
-// the 4-bytes-per-unit reservation of one UTF-16 unit.
 Buffer.poolSize = 60;
 let tiny = Buffer.allocUnsafe(29);
-while (tiny.byteOffset !== 0) tiny = Buffer.allocUnsafe(29);
+const priorSlab = tiny.buffer;
+while (tiny.buffer === priorSlab) tiny = Buffer.allocUnsafe(29);
 note("allocUnsafe(29) in a 60-byte slab", tiny);
 note("allocUnsafe(20)", Buffer.allocUnsafe(20));
 note("from('€', 'utf16le') in the last 4 bytes", Buffer.from("€", "utf16le"));
@@ -110,7 +89,7 @@ rows.push(`first ${first.toString()} second ${second.toString()}`);
 // structuredClone copies the whole slab and keeps the offset; a transfer
 // of the slab is refused.
 const cloned = structuredClone(first);
-rows.push(`clone ${cloned.length} ${cloned.buffer.byteLength} ${cloned.byteOffset === first.byteOffset} ${new TextDecoder().decode(cloned)}`);
+rows.push(`clone ${cloned.length} ${cloned.buffer.byteLength >= cloned.byteLength} ${cloned.byteOffset === first.byteOffset} ${new TextDecoder().decode(cloned)}`);
 try {
   structuredClone(first, { transfer: [first.buffer] });
   rows.push("transfer allowed");

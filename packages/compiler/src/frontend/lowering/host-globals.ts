@@ -3,7 +3,7 @@ import { arrayOf, type IrExpr, STRING, type SrcLoc, VOID } from "../../ir/ir.js"
 import type { Lowerer } from "./lowerer.js";
 import { stdlibGlobalNameOf, withoutTypeCasts } from "./surfaces.js";
 
-/* Node 24 globals the native runtime does not implement. Reading one is NOT
+/* Node globals the native runtime does not implement. Reading one is NOT
  * a feature probe for an absent capability: Node has the value, so answering
  * `undefined` would silently diverge (pi's Codex transport stops running its
  * WebSocket path). A read answers the constructor Node has
@@ -14,10 +14,10 @@ import { stdlibGlobalNameOf, withoutTypeCasts } from "./surfaces.js";
  *
  * The set is derived, not typed by hand — see
  * packages/compiler/test/host-globals.test.ts, which recomputes it from
- * internal/compatibility/generated/node-v24-internal.json:
+ * internal/compatibility/generated/node-v26-internal.json:
  *
  *   globals chapter, depth 1, not flag-gated (an "Enable this API with …"
- *   stability note means Node 24 does not define it by default)
+ *   stability note means Node does not define it by default)
  *   − names the compiler's bundled declarations know
  *     (packages/compiler/ambient/*.d.ts: such a read is lowered or throws a
  *     loud runtime SC2020, never answers undefined)
@@ -26,7 +26,7 @@ import { stdlibGlobalNameOf, withoutTypeCasts } from "./surfaces.js";
  *   − rows the ledger's implementation-owned static status does not call
  *     "not-implemented".
  *
- * Performance is the one Node 24 global the docs chapter omits (Node
+ * Performance is the global the docs chapter omits (Node
  * documents the class under perf_hooks, which has no Performance row either);
  * the runtime oracle in the design repro pins it as a global whose typeof is
  * "function", and it is listed here explicitly.
@@ -35,17 +35,19 @@ import { stdlibGlobalNameOf, withoutTypeCasts } from "./surfaces.js";
  * scr_global_for_in_object's node_names (package runtime): these names are
  * non-enumerable in Node, so they do not belong there.
  *
- * Temporal is deliberately absent: Node 24 does not define it, so "undefined"
- * is the exact answer. Bun, Deno, window, self and document are absent for the
- * same reason.
+ * Temporal has a namespace identity with refused member access. Bun, Deno,
+ * window, self and document are absent host capabilities.
  */
 export const NODE_GLOBALS_WITHOUT_NATIVE: ReadonlySet<string> = new Set([
   "BroadcastChannel",
   "CloseEvent",
+  "ErrorEvent",
   "CompressionStream",
   "DecompressionStream",
   "FormData",
   "Navigator",
+  "QuotaExceededError",
+  "Storage",
   "Performance",
   "PerformanceEntry",
   "PerformanceMark",
@@ -60,7 +62,7 @@ export const NODE_GLOBALS_WITHOUT_NATIVE: ReadonlySet<string> = new Set([
   "WebSocket",
 ]);
 
-/** Node 24's `length` for each listed global's constructor — the `Function`
+/** Node's `length` for each listed global's constructor — the `Function`
  * length of the class (`WebSocket.length` is 1, `FormData.length` 0). A read
  * answers a constructor carrying it, so a program reading `name`, `length` or
  * `typeof` off the value sees what Node shows. Values are pinned against the
@@ -68,10 +70,13 @@ export const NODE_GLOBALS_WITHOUT_NATIVE: ReadonlySet<string> = new Set([
 const HOST_GLOBAL_LENGTHS: ReadonlyMap<string, number> = new Map([
   ["BroadcastChannel", 1],
   ["CloseEvent", 1],
+  ["ErrorEvent", 2],
   ["CompressionStream", 1],
   ["DecompressionStream", 1],
   ["FormData", 0],
   ["Navigator", 0],
+  ["QuotaExceededError", 0],
+  ["Storage", 0],
   ["Performance", 0],
   ["PerformanceEntry", 0],
   ["PerformanceMark", 1],

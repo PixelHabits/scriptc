@@ -3623,7 +3623,10 @@ ScrStr *scr_insp_dyn(ScrDyn *d, double recurse, double depth) {
 #endif
       const ScrDynHandleOps *ops = scr_dyn_handle_ops_of(d);
       if (ops->inspect_custom_only && !g_custom_inspect) {
-        if (recurse > depth) return insp_bracketed_class(ops->cls);
+        if (recurse > depth) {
+          if (d->v.handle.tag == SCR_DYNH_TEXT_ENCODER) return scr_str_new("TextEncoder {}", 14);
+          return insp_bracketed_class(ops->cls);
+        }
         InspBuf out = {0};
         ib_cstr(&out, "util.inspect of a ");
         ib_cstr(&out, ops->cls);
@@ -3640,7 +3643,7 @@ ScrStr *scr_insp_dyn(ScrDyn *d, double recurse, double depth) {
         if (recurse > depth && !ops->inspect_view_empty) {
           /* A nested-view inspector returns the instance itself there,
            * which has no own properties: `URL {}`. */
-          if (ops->inspect_view_nested) {
+          if (ops->inspect_view_nested || d->v.handle.tag == SCR_DYNH_TEXT_ENCODER) {
             InspBuf out = {0};
             ib_cstr(&out, ops->cls);
             ib_cstr(&out, " {}");

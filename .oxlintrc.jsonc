@@ -295,10 +295,12 @@
       },
     },
     {
-      // Each module's fallback declarations are a script that declares the
-      // module ambiently; it names the files of the modules it uses by
-      // reference, since a script cannot import them.
-      "files": ["packages/compiler/ambient/node-fallback/*.d.ts"],
+      // Fallback declarations are scripts that declare globals and modules
+      // ambiently; they reference dependencies since a script cannot import them.
+      "files": [
+        "packages/compiler/ambient/scriptc-node-fallback.d.ts",
+        "packages/compiler/ambient/node-fallback/*.d.ts",
+      ],
       "rules": {
         "typescript/triple-slash-reference": "off",
       },

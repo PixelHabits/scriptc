@@ -188,6 +188,7 @@ int main(int argc, char **argv) {
   eval_sync("process.versions.node");
   eval_sync("process.config.variables.node_use_node_snapshot");
   eval_sync("process.config.variables.icu_small");
+  eval_sync("Temporal.PlainDate.from('2026-01-31').add({ months: 1 }).toString()");
   eval_sync("new Intl.NumberFormat('de-DE').format(1234567.891)");
   eval_sync("new Intl.DateTimeFormat('ja-JP', { timeZone: 'UTC', dateStyle: 'full' }).format(0)");
   eval_sync("require('node:crypto').createHash('sha256').update('scriptc').digest('hex')");

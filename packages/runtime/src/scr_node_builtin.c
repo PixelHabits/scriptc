@@ -230,6 +230,8 @@ static ScrDyn *scr_global_get(void *handle, const char *key, size_t length) {
     return scr_global_console_get();
   if (length == 5 && memcmp(key, "fetch", length) == 0 && scr_global_fetch_get) return scr_global_fetch_get();
   if (length == 9 && memcmp(key, "navigator", length) == 0) return scr_navigator_object();
+  if (length == 8 && memcmp(key, "Temporal", length) == 0) return scr_temporal_object();
+  if (length == 14 && memcmp(key, "sessionStorage", length) == 0) return scr_session_storage_object();
   if (length == 9 && memcmp(key, "undefined", length) == 0) return scr_dyn_undefined();
   if (length == 3 && memcmp(key, "NaN", length) == 0) return scr_dyn_new_num(NAN);
   if (length == 8 && memcmp(key, "Infinity", length) == 0) return scr_dyn_new_num(INFINITY);
@@ -272,10 +274,47 @@ static bool scr_global_set(void *handle, const char *key, size_t length, const S
   return true;
 }
 
+static ScrDyn *scr_global_own_keys(void *handle) {
+  (void)handle;
+  ScrDyn *keys = scr_dyn_obj_own_keys(scr_global_known);
+  ScrDyn *own = scr_dyn_obj_own_keys(scr_global_own);
+  for (size_t i = 0; i < own->v.arr.len; i++)
+    scr_dyn_arr_push(keys, scr_dyn_retain(own->v.arr.items[i]));
+  scr_dyn_release(own);
+  return keys;
+}
+
+static ScrDyn *scr_global_own_descriptor(void *handle, const ScrStr *key) {
+  (void)handle;
+  if (scr_dyn_obj_get(scr_global_own, key->data, key->len))
+    return scr_dyn_own_descriptor(scr_global_own, key);
+  if (key->len == 8 && memcmp(key->data, "Temporal", 8) == 0) {
+    ScrDyn *descriptor = scr_dyn_new_obj();
+    scr_dyn_obj_set(descriptor, "value", 5, scr_temporal_object());
+    scr_dyn_obj_set(descriptor, "writable", 8, scr_dyn_new_bool(true));
+    scr_dyn_obj_set(descriptor, "enumerable", 10, scr_dyn_new_bool(false));
+    scr_dyn_obj_set(descriptor, "configurable", 12, scr_dyn_new_bool(true));
+    return descriptor;
+  }
+  if (!scr_dyn_obj_get(scr_global_known, key->data, key->len)) return scr_dyn_undefined();
+  static const char message[] = "globalThis property descriptor is not supported yet [SC2020]";
+  scr_throw_error_msg_code(SCR_ERR_ERROR, message, sizeof message - 1, "SC2020");
+  return NULL;
+}
+
+static ScrDyn *scr_global_enumerable_keys(void *handle) {
+  (void)handle;
+  ScrDyn *names = scr_global_for_in_object();
+  ScrDyn *keys = scr_dyn_obj_keys(names);
+  scr_dyn_release(names);
+  return keys;
+}
+
 ScrDyn *scr_global_object(void) {
   static const ScrDynHandleOps ops = {
     .cls = "Object", .retain = scr_global_retain, .release = scr_global_release,
     .get = scr_global_get, .set = scr_global_set,
+    .own_keys = scr_global_own_keys, .enumerable_keys = scr_global_enumerable_keys, .own_descriptor = scr_global_own_descriptor,
   };
   scr_dyn_handle_install(SCR_DYNH_GLOBAL, &ops);
   if (!scr_global_known) scr_global_known = scr_dyn_new_obj();
@@ -303,14 +342,14 @@ void scr_global_values_install(ScrDyn *lookup) {
   scr_atexit(scr_global_values_cleanup);
 }
 
-/* What `for (key in globalThis)` visits (+1): Node 24's enumerable global
+/* What `for (key in globalThis)` visits (+1): Node's enumerable global
  * properties in its order, then the program's own global properties in
  * creation order, as keys of a fresh object. */
 ScrDyn *scr_global_for_in_object(void) {
   static const char *const node_names[] = {
     "global", "clearImmediate", "setImmediate", "clearInterval", "clearTimeout",
     "setInterval", "setTimeout", "queueMicrotask", "structuredClone", "atob",
-    "btoa", "performance", "fetch", "crypto", "navigator",
+    "btoa", "performance", "fetch", "crypto", "navigator", "sessionStorage",
   };
   ScrDyn *object = scr_dyn_new_obj();
   for (size_t i = 0; i < sizeof node_names / sizeof node_names[0]; i++)
@@ -746,4 +785,76 @@ ScrDyn *scr_navigator_object(void) {
     scr_navigator_keep();
   }
   return scr_dyn_retain(scr_navigator_box);
+}
+
+/* The session storage identity supports capability probes; its operations
+ * require a storage implementation and refuse at the member read. */
+static SCR_TL ScrDyn *scr_session_storage;
+
+static void scr_session_storage_cleanup(void) {
+  scr_dyn_release(scr_session_storage);
+  scr_session_storage = NULL;
+}
+
+static ScrDyn *scr_session_storage_get(void *handle, const char *key, size_t length) {
+  (void)handle;
+  ScrJsonBuf text;
+  scr_jb_init(&text);
+  scr_jb_puts(&text, "sessionStorage.");
+  for (size_t i = 0; i < length; i++) scr_jb_putc(&text, key[i]);
+  scr_jb_puts(&text, " is not supported yet [SC2020]");
+  ScrStr *message = scr_jb_finish(&text);
+  scr_throw_error_msg_code(SCR_ERR_ERROR, message->data, message->len, "SC2020");
+  scr_str_release(message);
+  return NULL;
+}
+
+ScrDyn *scr_session_storage_object(void) {
+  static const ScrDynHandleOps ops = {
+    .cls = "Storage", .retain = scr_global_retain, .release = scr_global_release,
+    .get = scr_session_storage_get,
+  };
+  if (!scr_session_storage) {
+    static SCR_TL char token;
+    scr_dyn_handle_install(SCR_DYNH_SESSION_STORAGE, &ops);
+    scr_session_storage = scr_dyn_new_handle(&token, SCR_DYNH_SESSION_STORAGE);
+    scr_atexit(scr_session_storage_cleanup);
+  }
+  return scr_dyn_retain(scr_session_storage);
+}
+
+/* A present namespace whose members require native Temporal compilation. */
+static SCR_TL ScrDyn *scr_temporal;
+
+static void scr_temporal_cleanup(void) {
+  scr_dyn_release(scr_temporal);
+  scr_temporal = NULL;
+}
+
+static ScrDyn *scr_temporal_get(void *handle, const char *key, size_t length) {
+  (void)handle; (void)key; (void)length;
+  static const char message[] = SCR_TEMPORAL_NATIVE_ERROR " [SC2020]";
+  scr_throw_error_msg_code(SCR_ERR_ERROR, message, sizeof message - 1, "SC2020");
+  return NULL;
+}
+
+static ScrDyn *scr_temporal_invoke(void *handle, ScrDyn *self, const char *key,
+                                  ScrDyn *const *args, size_t argc, const char *what) {
+  (void)self; (void)args; (void)argc; (void)what;
+  return scr_temporal_get(handle, key, strlen(key));
+}
+
+ScrDyn *scr_temporal_object(void) {
+  static const ScrDynHandleOps ops = {
+    .cls = "Object", .to_string_tag = "Temporal",
+    .retain = scr_global_retain, .release = scr_global_release,
+    .get = scr_temporal_get, .invoke = scr_temporal_invoke,
+  };
+  if (!scr_temporal) {
+    static SCR_TL char token;
+    scr_dyn_handle_install(SCR_DYNH_TEMPORAL, &ops);
+    scr_temporal = scr_dyn_new_handle(&token, SCR_DYNH_TEMPORAL);
+    scr_atexit(scr_temporal_cleanup);
+  }
+  return scr_dyn_retain(scr_temporal);
 }

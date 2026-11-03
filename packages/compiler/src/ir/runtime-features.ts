@@ -95,6 +95,8 @@ const DYN_ASYNC_LIB_FNS: ReadonlySet<IrLibFn> = new Set([
   "child.propsInstall",
   "child.propsResolve",
   "crypto.native",
+  // DEP0198 rides the dyn-async unit's warning machinery.
+  "crypto.hashShakeWarnings",
   // The crypto global's object extends crypto.native's.
   "webcrypto.object",
   // Web streams settle their promises with dyn values.
@@ -472,6 +474,9 @@ const SYMBOL_LIB_FNS: ReadonlySet<IrLibFn> = new Set([
   "dyn.usingDispose",
   "dyn.usingMethod",
   "util.isDeepStrictEqual",
+  // Filesystem callbacks return Stats with private timestamp symbols.
+  "fs.callbackCall",
+  "fs.callbackValue",
   // The Buffer function value's Symbol(kIsEncodingSymbol) member
   "buffer.constructor",
   "buffer.staticValue",
@@ -529,8 +534,12 @@ export function isDynUndefined(e: IrExpr): boolean {
 
 /** With `nodes` (the module's node index), the scan reads the recorded
  * expressions and types instead of walking the module. */
-export function moduleRuntimeFeatures(mod: IrModule, nodes?: IrNodeIndex): RuntimeFeatures {
-  return scanRuntimeFeatures(mod, undefined, nodes);
+export function moduleRuntimeFeatures(
+  mod: IrModule,
+  nodes?: IrNodeIndex,
+  excludedLibCalls?: ReadonlySet<IrLibFn>,
+): RuntimeFeatures {
+  return scanRuntimeFeatures(mod, undefined, nodes, excludedLibCalls);
 }
 
 /** The module's record shapes, unions and class layouts by id. */
@@ -1077,10 +1086,9 @@ const RUNTIME_FEATURE_RULES = {
   childOptionExt: rule({
     fns: ["cp.spawnSyncExt", "cp.spawnSyncExtEnv", "cp.execFileCwd"],
   }),
-  /** scr_cipher.c over the mbedTLS archive; DEP0182 reports through the
-   * process-warning unit, and unknown output encodings render through the
-   * inspect unit. WebCrypto's encrypt, decrypt, wrapKey and unwrapKey
-   * (scr_webcrypto_aes.c) link the same archive. */
+  /** scr_cipher.c over the mbedTLS archive; unknown output encodings
+   * render through the inspect unit. WebCrypto's encrypt, decrypt,
+   * wrapKey and unwrapKey (scr_webcrypto_aes.c) link the same archive. */
   cipher: rule({
     fns: [
       "crypto.cipherNew",
@@ -1123,23 +1131,14 @@ const RUNTIME_FEATURE_RULES = {
       mod.functions.some(
         (fn) => fn.async === true && fn.generator === undefined && fn.returnType.kind === "dyn",
       ),
-    // The legacy url functions, crypto.createCipheriv,
-    // ecdh.setPublicKey and generateKeyPair's rsa-pss options emit their
-    // deprecation warnings through the dyn-async unit (WebCrypto's
-    // encrypt and decrypt link scr_cipher.c too); scr_wasm.c boxes its
-    // handles and promises through it.
+    // The legacy url functions and ecdh.setPublicKey emit their
+    // deprecation warnings through the dyn-async unit; scr_wasm.c boxes
+    // its handles and promises through it.
     fns: [
       ...DYN_ASYNC_LIB_FNS,
       ...READABLE_DYN_ASYNC_LIB_FNS,
       ...LEGACY_URL_LIB_FNS,
-      "crypto.cipherNew",
-      "webcrypto.encrypt",
-      "webcrypto.decrypt",
-      "webcrypto.wrapKey",
-      "webcrypto.unwrapKey",
       "crypto.ecdhNew",
-      "crypto.generateKeyPairCb",
-      "crypto.generateKeyPairSync",
     ],
     prefixes: [...READABLE_DYN_ASYNC_PREFIXES, "wasm."],
     expr: (node, tables) =>
@@ -1430,7 +1429,10 @@ const RUNTIME_FEATURE_RULES = {
   parseArgs: rule({ fns: [...PARSE_ARGS_LIB_FNS, ...UTIL_CALLABLE_LIB_FNS] }),
   /** perf_hooks event-loop metrics (eventLoopUtilization,
    * monitorEventLoopDelay): scr_perf_loop.c. */
-  perfLoop: rule({ fns: ["perf.idleTime"], prefixes: ["perf.loop", "perf.eld"] }),
+  perfLoop: rule({
+    fns: ["perf.idleTime", "perf.activeTime"],
+    prefixes: ["perf.loop", "perf.eld"],
+  }),
   /** scr_pki.c over the mbedTLS archive: asymmetric KeyObjects and
    * signatures. */
   pki: rule({ scan: webCryptoAsymmetricScan, fns: [...PKI_LIB_FNS] }),
@@ -1762,6 +1764,7 @@ function scanRuntimeFeatures(
   mod: IrModule,
   stopAt?: RuntimeFeatureName,
   nodes?: IrNodeIndex,
+  excludedLibCalls?: ReadonlySet<IrLibFn>,
 ): RuntimeFeatures {
   const features = noRuntimeFeatures();
   const scans: { name: RuntimeFeatureName; scan: RuleScan }[] = [];
@@ -1779,6 +1782,7 @@ function scanRuntimeFeatures(
       classes: new Map((mod.classes ?? []).map((c) => [c.name, c])),
     });
   const expr = (node: IrExpr): boolean => {
+    if (node.kind === "libCall" && excludedLibCalls?.has(node.fn)) return keepGoing();
     for (let i = 0; i < scans.length; i++) scans[i]!.scan.expr(node);
     if (node.kind === "libCall") {
       const fn = node.fn;

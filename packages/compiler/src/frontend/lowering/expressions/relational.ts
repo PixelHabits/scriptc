@@ -45,6 +45,7 @@ import { lowerCryptoKeyInstanceof } from "../builtins/webcrypto.js";
 import { lowerNetAddressInstanceof } from "../builtins/net-address.js";
 import { lowerMimeInstanceof } from "../builtins/mime.js";
 import { typedArrayHasMember } from "../builtins/typed-array-members.js";
+import { allBytesArms, indexedUnionArms } from "../indexed-unions.js";
 import { fenceEarlyNsMemberRef, nsMemberIdentOf } from "../lower-namespaces.js";
 import { maybePromiseInstanceOf } from "../maybe-promise.js";
 import { lowerGlobalObjectValue } from "../lower-global-value.js";
@@ -2132,6 +2133,9 @@ export function lowerInExpression(
   if (recv.type.kind === "dyn") {
     return { kind: "dynHasKey", key, value: recv, type: BOOL, loc };
   }
+  const bytesArms = indexedUnionArms(lowerer, recv.type);
+  if (bytesArms && allBytesArms(bytesArms))
+    return { kind: "dynHasKey", key, value: lowerer.coerceToExpected(recv, DYN), type: BOOL, loc };
   // `"k" in u` over a UNION whose arms are FIXED record shapes: every
   // arm answers membership STATICALLY (a declared non-optional field is
   // always present, an undeclared name never is), so the whole test

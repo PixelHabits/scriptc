@@ -6,7 +6,7 @@ import { buildBacklog } from "./generate.mjs";
 
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 const backlog = buildBacklog(
-  JSON.parse(readFileSync(`${packageRoot}generated/node-v24-internal.json`, "utf8")),
+  JSON.parse(readFileSync(`${packageRoot}generated/node-v26-internal.json`, "utf8")),
 );
 const args = process.argv.slice(2);
 

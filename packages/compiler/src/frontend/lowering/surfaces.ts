@@ -2038,16 +2038,6 @@ function buildBuiltinModuleFns(): BuiltinModuleFnTable {
       isExternal: { fn: "util.typeIs", params: [DYN], result: BOOL },
     },
     buffer: {
-      // Node 24's deprecate(SlowBuffer): DEP0030 on the first call, then
-      // allocUnsafeSlow's validation and an unpooled Buffer.
-      SlowBuffer: {
-        fn: "buffer.slowBuffer",
-        params: [DYN],
-        result: BYTES_U8,
-        valueParams: [{ mode: "optional", type: DYN, defaultValue: undefined }],
-        valueLength: 1,
-        valueName: "deprecated",
-      },
       isAscii: { fn: "buffer.isAscii", params: [DYN], result: BOOL },
       isUtf8: { fn: "buffer.isUtf8", params: [DYN], result: BOOL },
       transcode: { fn: "buffer.transcode", params: [DYN, DYN, DYN], result: BYTES_U8 },
@@ -2817,7 +2807,7 @@ function buildAmbientSurfaceFns(): readonly AmbientSurfaceRow[] {
       id: "node-builtin.perf_hooks.performance.eventLoopUtilization",
       kind: "node-builtin",
       name: "perf_hooks.performance.eventLoopUtilization",
-      fns: ["perf.loopStart", "perf.idleTime"],
+      fns: ["perf.loopStart", "perf.idleTime", "perf.activeTime"],
       note: "active time is the main thread's CPU time since the loop started; the one- and two-argument difference forms are supported",
     },
     {
@@ -3241,26 +3231,20 @@ export function builtinConstLit(
   return { kind: "boolLit", value, type: BOOL, loc };
 }
 
-/** node:module's builtinModules, BAKED — Node v24's exact list (verbatim
+/** node:module's builtinModules, BAKED — Node v26's exact list (verbatim
  * order: the bare names, then the node:-prefix-only tails), pinned to
  * the compat target rather than read from the COMPILING host's Node so
  * emitted programs are host-independent (the cache-identity contract).
  * Node ships one frozen singleton; each read here mints a fresh string
  * array — a divergence only mutation could observe, and mutating Node's
  * frozen array throws anyway. */
-export const NODE_BUILTIN_MODULES_V24: readonly string[] = [
+export const NODE_BUILTIN_MODULES_V26: readonly string[] = [
   "_http_agent",
   "_http_client",
   "_http_common",
   "_http_incoming",
   "_http_outgoing",
   "_http_server",
-  "_stream_duplex",
-  "_stream_passthrough",
-  "_stream_readable",
-  "_stream_transform",
-  "_stream_wrap",
-  "_stream_writable",
   "_tls_common",
   "_tls_wrap",
   "assert",
@@ -3317,6 +3301,7 @@ export const NODE_BUILTIN_MODULES_V24: readonly string[] = [
   "wasi",
   "worker_threads",
   "zlib",
+  "node:ffi",
   "node:sea",
   "node:sqlite",
   "node:test",
@@ -3329,7 +3314,7 @@ export const NODE_BUILTIN_MODULES_V24: readonly string[] = [
 export function builtinModulesArrayLit(loc: { file: string; start: number; end: number }): IrExpr {
   return {
     kind: "arrayLit",
-    elems: NODE_BUILTIN_MODULES_V24.map((m): IrExpr => ({
+    elems: NODE_BUILTIN_MODULES_V26.map((m): IrExpr => ({
       kind: "strLit",
       value: m,
       type: STRING,

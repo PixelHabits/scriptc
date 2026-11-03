@@ -4600,7 +4600,12 @@ function mapTypeInner(type: ts.Type, ctx: TypeMapperCtx): IrType | null {
     return { kind: "promise", inner };
   }
   // Native collection iterators use checked runtime iterator objects.
-  if (isStdlibInterface("MapIterator") || isStdlibInterface("SetIterator")) return DYN;
+  if (
+    isStdlibInterface("MapIterator") ||
+    isStdlibInterface("SetIterator") ||
+    isStdlibInterface("URLSearchParamsIterator")
+  )
+    return DYN;
   // Array iterators (`list.values()` and friends) are generators over the
   // live array: each step reads the current length and element. String
   // iterators (`s[Symbol.iterator]()`) are generators over the code points.
@@ -5319,6 +5324,7 @@ function mapTypeInner(type: ts.Type, ctx: TypeMapperCtx): IrType | null {
       "total_global_handles_size",
       "used_global_handles_size",
       "external_memory",
+      "total_allocated_bytes",
     ];
     return {
       kind: "record",

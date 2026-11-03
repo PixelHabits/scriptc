@@ -22,6 +22,7 @@ declare module "v8" {
     total_global_handles_size: number;
     used_global_handles_size: number;
     external_memory: number;
+    total_allocated_bytes: number;
   }
   export function getHeapStatistics(): HeapInfo;
   export function cachedDataVersionTag(): number;

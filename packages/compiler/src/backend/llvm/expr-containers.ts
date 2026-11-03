@@ -1046,7 +1046,8 @@ export function emitArrIntrinsic(
       );
       return host.own({ name: result, type: e.type });
     }
-    case "sortValues": {
+    case "sortValues":
+    case "sortValuesCopy": {
       // The runtime invokes the borrowed comparator with the callValue ABI
       // and stops at the first pending exception.
       const count = host.emitExpr(e.args[0]!);
@@ -1054,9 +1055,11 @@ export function emitArrIntrinsic(
       const cmp = e.args[1]!.type;
       const arity = cmp.kind === "func" ? cmp.params.length : 0;
       const keyed = emitSortKeyArgs(host, e.args[2], e.args[3]);
-      host.declare(`declare void @scr_arr_sort_values(ptr, double, ptr, i32, i32, ptr)`);
+      host.declare(
+        `declare void @scr_arr_sort_values(ptr, double, ptr, i32, i32, ptr, i1 zeroext)`,
+      );
       B.line(
-        `call void @scr_arr_sort_values(ptr ${r.name}, double ${count.name}, ptr ${comparator.name}, i32 ${arity}, ${keyed})`,
+        `call void @scr_arr_sort_values(ptr ${r.name}, double ${count.name}, ptr ${comparator.name}, i32 ${arity}, ${keyed}, i1 ${e.method === "sortValuesCopy" ? 1 : 0})`,
       );
       host.emitPendingCheck();
       return { name: "", type: e.type };

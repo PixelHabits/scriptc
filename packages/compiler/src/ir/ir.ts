@@ -2421,6 +2421,8 @@ export type IrArrIntrinsicMethod =
    * `(elem) => number` both comparator operands apply. Keys the runtime
    * does not order directly (NaN, -0) still sort through the comparator. */
   | "sortValues"
+  /** The toSorted snapshot uses TimSort even below eight elements. */
+  | "sortValuesCopy"
   /** Internal stable comparator sort of a dense array in place: arguments
    * are [comparator, owned]. Returns false, without calling the comparator,
    * when the receiver has holes, storage-level undefined or sparse slots, or
@@ -2483,6 +2485,7 @@ export const MAY_THROW_ARR_METHODS: ReadonlySet<IrArrIntrinsicMethod> = new Set(
   "with",
   "withUndefined",
   "sortValues",
+  "sortValuesCopy",
   "sortDense",
 ]);
 

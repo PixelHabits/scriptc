@@ -1,10 +1,4 @@
-// Node 24 does not define Bun, Deno, Temporal or HostEventStream, so a
-// computed read of the global object and `… in globalThis` answer
-// undefined/false — exactly what the native runtime answers for a name it does
-// not know. These reads arm the host-global check (host-globals.ts), which
-// covers only the Node globals the native runtime does NOT implement; those
-// throw instead of answering undefined (tests/harness/host-global-dynamic.test.ts),
-// so a differential program cannot exercise them.
+// Absent host capabilities and the present Temporal namespace keep Node answers.
 declare const Bun: { readonly version?: string } | undefined;
 declare const Deno: { readonly version: { deno: string } } | undefined;
 declare const HostEventStream: unknown;

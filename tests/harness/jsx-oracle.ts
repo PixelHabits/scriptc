@@ -9,31 +9,38 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { createRequire } from "node:module";
+import { basename, dirname, join, relative } from "node:path";
 import ts5 from "typescript";
 
-/** `// @tsc-jsx` in a directory program's main.ts head: Node cannot run
- * .tsx or .jsx modules, so the oracle runs TypeScript's own emit of the
- * program. Every .ts, .tsx, .js and .jsx file of the directory is transpiled
- * (target ES2022, ES modules) with the jsx options of the directory's
- * tsconfig.json, .ts, .tsx and .jsx files becoming .js, and package.json import
- * and export targets renamed alike; other files are copied.
- * The result lives in a directory under the test cache keyed by the program
- * bytes and the typescript version. */
+// The emitter bytes distinguish patched builds with the same package version.
+export const tscOracleIdentity = createHash("sha256")
+  .update(readFileSync(createRequire(import.meta.url).resolve("typescript")))
+  .update(readFileSync(import.meta.filename))
+  .digest("hex");
+
 export function wantsTscJsx(head: readonly string[]): boolean {
   return head.some((line) => /^\/\/ @tsc-jsx\s*$/.test(line));
 }
 
-/** The oracle entry (`main.js` of the transpiled program) for `file`. */
-export function tscJsxOracleEntry(file: string, cacheDir: string): string {
+/** Transpile a single module or a directory graph for the Node oracle. */
+export function tscOracleProgram(
+  file: string,
+  cacheDir: string,
+  name?: string,
+): { entry: string; root: string } {
   const root = dirname(file);
-  const files = listFiles(root);
-  const hash = createHash("sha256").update(ts5.version);
+  const directory = /\/main\.(ts|js|mjs|cjs)$/.test(file);
+  const files = directory ? listFiles(root) : [file];
+  const hash = createHash("sha256").update(tscOracleIdentity);
+  const entryName = directory ? "main.js" : (name ?? `${basename(file)}.mjs`);
+  hash.update("\0").update(entryName);
   for (const path of files)
     hash.update("\0").update(relative(root, path)).update("\0").update(readFileSync(path));
-  const dir = join(cacheDir, `jsx-oracle-${hash.digest("hex").slice(0, 16)}`);
-  const entry = join(dir, "main.js");
-  if (existsSync(entry)) return entry;
+  const dir = join(cacheDir, `tsc-oracle-${hash.digest("hex").slice(0, 16)}`);
+  const entry = join(dir, entryName);
+  const program = { entry, root: directory ? dir : entry };
+  if (existsSync(entry)) return program;
   const configPath = join(root, "tsconfig.json");
   const config = existsSync(configPath)
     ? ts5.parseJsonConfigFileContent(
@@ -45,6 +52,7 @@ export function tscJsxOracleEntry(file: string, cacheDir: string): string {
   const compilerOptions: ts5.CompilerOptions = {
     target: ts5.ScriptTarget.ES2022,
     module: ts5.ModuleKind.ESNext,
+    rewriteRelativeImportExtensions: true,
     jsx: config.jsx,
     jsxFactory: config.jsxFactory,
     jsxFragmentFactory: config.jsxFragmentFactory,
@@ -64,10 +72,12 @@ export function tscJsxOracleEntry(file: string, cacheDir: string): string {
         fileName: path,
       }).outputText;
       writeFileSync(
-        target
-          .replace(/\.(?:ts|tsx|jsx)$/, ".js")
-          .replace(/\.mts$/, ".mjs")
-          .replace(/\.cts$/, ".cjs"),
+        directory
+          ? target
+              .replace(/\.(?:ts|tsx|jsx)$/, ".js")
+              .replace(/\.mts$/, ".mjs")
+              .replace(/\.cts$/, ".cjs")
+          : join(staging, entryName),
         output,
       );
     } else if (/(^|\/)package\.json$/.test(path)) {
@@ -101,7 +111,7 @@ export function tscJsxOracleEntry(file: string, cacheDir: string): string {
   } catch {
     rmSync(staging, { recursive: true, force: true });
   }
-  return entry;
+  return program;
 }
 
 function listFiles(root: string): string[] {

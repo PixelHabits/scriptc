@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { CLI_OPTIONS, USAGE } from "./usage.js";
 
-// Node 24 can persist V8's compiled module bytecode. scriptc's CLI imports
+// Node 26 can persist V8's compiled module bytecode. scriptc's CLI imports
 // the compiler and its lowering/backend graph before handling any command, so
 // enabling this in the tiny bootstrap avoids reparsing that graph on every
 // edit/build invocation.

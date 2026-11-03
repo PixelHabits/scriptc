@@ -170,8 +170,7 @@ struct ScrStreamState {
     bool next_dyn;
     bool next_result;
     /* The iterator's own read() is calling _read: synchronous pushes
-     * buffer, and the waiter takes the whole buffer afterwards (Node's
-     * read() returns everything _read pushed). */
+     * buffer until that read takes the first chunk. */
     bool next_reading;
     /* The waiter parked after its own read found nothing: data pushed
      * later reaches it through Node's iterator path, the 'readable'
@@ -1189,7 +1188,7 @@ static void *scr_stream_read_n_kind(ScrStream *s, double size, ScrEntryKind *kin
      * for read(0)) */
     want = st->r.length > 0 && (absent || n > 0) ? 1 : 0;
   } else if (absent) {
-    want = st->r.flowing == 1 && st->r.n > 0
+    want = (!st->r.encoded || st->r.flowing == 1) && st->r.n > 0
         ? scr_stream_entry_len(st, st->r.buf[st->r.first]) - st->r.head_off
         : st->r.length;
   } else {
@@ -1213,7 +1212,7 @@ static void *scr_stream_read_n_kind(ScrStream *s, double size, ScrEntryKind *kin
       if (st->r.object_entries) {
         want = st->r.length > 0 && (absent || n > 0) ? 1 : 0;
       } else if (absent) {
-        want = st->r.flowing == 1 && st->r.n > 0
+        want = (!st->r.encoded || st->r.flowing == 1) && st->r.n > 0
             ? scr_stream_entry_len(st, st->r.buf[st->r.first]) - st->r.head_off
             : st->r.length;
       } else {
@@ -1393,21 +1392,6 @@ bool scr_stream_write_dyn(ScrStream *s, const ScrDyn *d, ScrClosure *cb) {
 
 /* ── the for-await surface (readable.nextChunk) ───────────────────────── */
 
-/* Resolve the parked waiter with a taken chunk (moves), the EOF
- * sentinel, or dyn-boxed content per next_dyn. */
-/* Node's iterator is an async generator: `yield chunk` awaits the chunk,
- * so next() settles one microtask after the chunk is read. The end (a
- * bare return) and errors (a throw) settle without that await. caps[0]
- * the waiter, caps[1] the payload (dyn or bytes, by caps[2]). */
-static void scr_stream_next_yield_job(ScrClosure *job) {
-  ScrPromise *w = scr_box_get_ref(job->caps[0]);
-  bool dyn = scr_box_get_bool(job->caps[2]);
-  void *payload = scr_box_get_ref(job->caps[1]);
-  if (dyn) scr_promise_fulfill_ref(w, payload, scr_dyn_retain_v, scr_dyn_release_v, NULL);
-  else scr_promise_fulfill_ref(w, payload, scr_bytes_retain_v, scr_bytes_release_v, NULL);
-  scr_promise_release(w);
-}
-
 static void scr_stream_next_str_fence(void) {
   static const char msg[] =
       "for-await over a stream with an encoding set is not supported yet in "
@@ -1460,26 +1444,14 @@ static void scr_stream_next_fulfill(ScrStreamState *st, ScrPromise *w /*moves*/,
   } else {
     payload = chunk ? (ScrBytes *)chunk : scr_bytes_new(SCR_BYTES_U8, 0);
   }
-  if (chunk == NULL) {
-    if (dyn) scr_promise_fulfill_ref(w, payload, scr_dyn_retain_v, scr_dyn_release_v, NULL);
-    else scr_promise_fulfill_ref(w, payload, scr_bytes_retain_v, scr_bytes_release_v, NULL);
-    scr_promise_release(w);
-    return;
-  }
-  ScrClosure *job = scr_closure_new((void *)&scr_stream_next_yield_job, 3);
-  job->caps[0] = scr_box_new_obj(scr_promise_retain_v, scr_promise_release_v, scr_promise_trace_v);
-  scr_box_set_ref(job->caps[0], w); /* moves */
-  job->caps[1] = dyn ? scr_box_new_obj(scr_dyn_retain_v, scr_dyn_release_v, NULL)
-                     : scr_box_new_obj(scr_bytes_retain_v, scr_bytes_release_v, NULL);
-  scr_box_set_ref(job->caps[1], payload); /* moves */
-  job->caps[2] = scr_box_new(SCR_BOX_BOOL);
-  scr_box_set_bool(job->caps[2], dyn);
-  scr_queue_microtask(job);
+  if (dyn) scr_promise_fulfill_ref(w, payload, scr_dyn_retain_v, scr_dyn_release_v, NULL);
+  else scr_promise_fulfill_ref(w, payload, scr_bytes_retain_v, scr_bytes_release_v, NULL);
+  scr_promise_release(w);
 }
 
 /* One pass of createAsyncIterator's loop for the parked waiter:
- * `stream.read()` (a _read below the hwm, then the buffered chunk; pushes
- * the _read makes join it), else the settled states (error, EOF), else
+ * `stream.read()` (a _read below the hwm, then the first buffered chunk),
+ * else the settled states (error, EOF), else
  * the waiter stays parked. */
 static void scr_stream_iter_step(ScrStream *s) {
   ScrStreamState *st = s->st;
@@ -1519,8 +1491,8 @@ static void scr_stream_next_wake_job(ScrClosure *job) {
 }
 
 /* Settle the parked waiter if the stream's state can answer now: an
- * error rejects, buffered content fulfills (one whole entry in from
- * mode, the whole buffer otherwise — Node's iterator read()), EOF
+ * error rejects, buffered content fulfills (one chunk in byte or object
+ * mode, the whole buffer when decoded and paused), EOF
  * fulfills the sentinel. Called from push/eof/destroy transitions. */
 static void scr_stream_settle_next_waiter(ScrStream *s) {
   ScrStreamState *st = s->st;
@@ -1554,7 +1526,11 @@ static void scr_stream_settle_next_waiter(ScrStream *s) {
     ScrPromise *w = st->r.next_waiter;
     st->r.next_waiter = NULL;
     ScrEntryKind kind = scr_stream_rkind(st);
-    void *chunk = scr_stream_rbuf_take(st, st->r.object_entries ? 1 : st->r.length);
+    size_t n = st->r.object_entries ? 1
+        : !st->r.encoded || st->r.flowing == 1
+            ? scr_stream_entry_len(st, st->r.buf[st->r.first]) - st->r.head_off
+            : st->r.length;
+    void *chunk = scr_stream_rbuf_take(st, n);
     scr_stream_next_fulfill(st, w, chunk, kind);
     if (st->r.ended && st->r.length == 0) scr_stream_end_readable(s);
     return;
@@ -7871,6 +7847,13 @@ ScrStream *scr_stream_iterator_close(ScrStream *s) {
   scr_stream_do_destroy(s, error);
   scr_error_release(error);
   return scr_stream_retain(s);
+}
+
+ScrPromise *scr_stream_iterator_return(ScrStream *s) {
+  scr_stream_release(scr_stream_iterator_close(s));
+  ScrPromise *p = scr_promise_new();
+  scr_promise_resolve_dyn(p, scr_dyn_undefined());
+  return p;
 }
 
 ScrError *scr_stream_errored(ScrStream *s) {

@@ -2751,7 +2751,7 @@ static ScrStr *scr_assert_regex_render(ScrRegex *re) {
 /* Node's regex-mismatch AssertionError: 'The input did not match the
  * regular expression /re/flags. Input:\n\n<inspect(input)>\n' (the
  * was-expected-to-not-match head when negated). Always throws. */
-static void scr_assert_regex_input_fail(bool negated, ScrRegex *re, ScrStr *input) {
+static void scr_assert_regex_input_fail(bool negated, ScrRegex *re, ScrStr *input, bool generated) {
   ScrStr *insp = scr_assert_inspect_str(input);
   ScrStr *rre = scr_assert_regex_render(re);
   const char *head = negated
@@ -2775,7 +2775,7 @@ static void scr_assert_regex_input_fail(bool negated, ScrRegex *re, ScrStr *inpu
   scr_str_release(rre);
   ScrStr *message = scr_str_new(buf, n);
   free(buf);
-  scr_assert_fail_msg(message);
+  scr_assert_fail(message, generated);
 }
 
 void scr_assert_match(ScrStr *s, ScrRegex *re, bool negated, ScrStr *msg,
@@ -2787,7 +2787,7 @@ void scr_assert_match(ScrStr *s, ScrRegex *re, bool negated, ScrStr *msg,
     scr_assert_fail(scr_str_retain(msg), false);
     return;
   }
-  scr_assert_regex_input_fail(negated, re, s);
+  scr_assert_regex_input_fail(negated, re, s, !has_msg);
 }
 
 /* assert.throws(fn, /re/) whose thrown Error did not satisfy the regex:
@@ -2808,7 +2808,7 @@ void scr_assert_throws_regex(ScrRegex *re, ScrError *err, ScrStr *msg, bool has_
     scr_assert_fail(scr_str_retain(msg), false);
     return;
   }
-  scr_assert_regex_input_fail(false, re, str);
+  scr_assert_regex_input_fail(false, re, str, true);
   scr_str_release(str);
 }
 

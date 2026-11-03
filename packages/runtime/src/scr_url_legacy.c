@@ -1,5 +1,5 @@
 /* node:url's legacy API — url.parse(), url.format() and url.resolve() —
- * plus url.domainToASCII()/domainToUnicode(): a port of Node 24's
+ * plus url.domainToASCII()/domainToUnicode(): a port of Node 26's
  * lib/url.js (Url.prototype.parse/format/resolveObject), edge cases
  * included, and of the WHATWG host parser behind the domain functions.
  * The differential corpus is the oracle.
@@ -13,8 +13,8 @@
  * and the few UTF-16 facts they depend on (hostname length, the U+00A0 and
  * U+FEFF trim set, \s, auth's encodeStr) are computed explicitly.
  *
- * DEP0169 (url.parse()'s deprecation) and DEP0170 (an invalid port) are
- * emitted once per process on the next tick, Node's timing; the compiler
+ * DEP0169 (url.parse()'s deprecation) is emitted once per process on the
+ * next tick, Node's timing; the compiler
  * passes `warn` false for call sites inside node_modules, Node's
  * isInsideNodeModules rule.
  *
@@ -155,7 +155,6 @@ static void lu_copy(LegacyUrl *dst, const LegacyUrl *src) {
 /* ── warnings ──────────────────────────────────────────────────────── */
 
 static SCR_TL bool lu_parse_warned = false;
-static SCR_TL bool lu_port_warned = false;
 
 /* process.emitWarning(message, 'DeprecationWarning', code): reported on
  * the next tick, dropped under process.noDeprecation, and thrown from its
@@ -551,16 +550,17 @@ static bool lu_parse(LegacyUrl *self, const ScrStr *url, bool parse_query, bool 
       for (size_t i = 0; i < h->len; i++) {
         char c = h->data[i];
         if (c != '/' && c != '\\' && c != '#' && c != '?' && c != ':') continue;
-        if (c == ':' && !lu_port_warned) {
-          lu_port_warned = true;
+        if (c == ':') {
           ScrJsonBuf detail;
           scr_jb_init(&detail);
-          scr_jb_puts(&detail, "The URL ");
+          scr_jb_puts(&detail, "The argument 'url' ");
           scr_jb_put_str(&detail, url);
-          scr_jb_puts(&detail, " is invalid. Future versions of Node.js will throw an error.");
+          scr_jb_puts(&detail, ". Received 'Invalid port in url'");
           ScrStr *message = scr_jb_finish(&detail);
-          lu_deprecate("DEP0170", message);
+          scr_throw_error_msg_code(SCR_ERR_TYPE, message->data, message->len, "ERR_INVALID_ARG_VALUE");
           scr_str_release(message);
+          failed = true;
+          goto done;
         }
         ScrJsonBuf moved;
         scr_jb_init(&moved);

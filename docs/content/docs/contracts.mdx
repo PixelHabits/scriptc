@@ -95,7 +95,7 @@ function scan(text: string): Token[] {
 for (const t of scan("const answer = 42; function f() {}")) console.log(t.pos, t.end, t.kind);
 ```
 
-Node.js 24 runs the program directly:
+Node.js 26 runs the program directly:
 
 ```console
 $ node main.ts

@@ -233,24 +233,18 @@ const VALUE_MESSAGE = "\u0001scriptc:assert-message-value";
 
 /** A message argument that is not a string, met while one assertion
  * lowers (withValueMessage). `fail` marks assert.fail's message, which
- * Node uses for every value but null and undefined. */
+ * Node uses for every value but undefined. */
 let valueMessage: { value: IrExpr; has: string; text: string; fail: boolean } | null = null;
 
-/** The optional trailing message argument: Node accepts a string or an
- * Error (throwing the Error itself) — the STRING form lowers; a literal
- * `undefined` counts as omitted (Node's `message == null` test). Returns
- * the libCall's (msg, hasMsg) pair — a "" dummy when omitted, so the
- * runtime can distinguish an omitted message from an empty one. Any other
- * value that crosses into the checked-dynamic tree (an untyped
- * `failures.join('')`, an Error) is registered with the runtime at the call
- * instead (withValueMessage). */
+/** Strings lower directly. Other supplied messages are registered for
+ * failure-time validation and factory invocation (withValueMessage). */
 function lowerMessageArg(
   lowerer: Lowerer,
   node: ts.Expression | undefined,
   loc: SrcLoc,
   fail = false,
 ): { msg: IrExpr; hasMsg: IrExpr } {
-  if (!node || (ts.isIdentifier(node) && node.text === "undefined")) {
+  if (!node) {
     return { msg: { kind: "strLit", value: "", type: STRING, loc }, hasMsg: boolLit(false, loc) };
   }
   const msg = lowerer.lowerExpr(node);
@@ -272,12 +266,9 @@ function lowerMessageArg(
   return { msg: varRef(text.id, STRING, loc), hasMsg: varRef(has.id, BOOL, loc) };
 }
 
-/** Lowers one assertion; a message value met on the way is evaluated after
- * the assertion's other arguments, as Node evaluates them. A null or
- * undefined message is omitted (Node's `message == null` test); a truthy
- * one is registered with the runtime, which the failure reads; any other
- * value is the empty message, which Node's comparison diffs treat as no
- * message too (createErrDiff tests the message's truthiness). */
+/** Evaluate a dynamic message after the operands. The runtime validates
+ * innerFail's message only when the assertion fails; assert.fail passes
+ * its value directly to AssertionError and defaults only undefined. */
 function withValueMessage(
   lowerer: Lowerer,
   expr: ts.CallExpression,
@@ -319,18 +310,25 @@ function withValueMessage(
     );
     const local = lowerer.declareHiddenLocal("assert.message", DYN);
     const value = varRef(local.id, DYN, loc);
-    // The runtime reports a registered value: a truthy one for the other
-    // methods, any value but null and undefined for assert.fail (Node's
-    // `actual == null` test), whose other values read "Failed".
-    const registered: IrExpr = message.fail
-      ? varRef(message.has, BOOL, loc)
-      : { kind: "dynTest", test: "truthy", value, type: BOOL, loc };
+    // assert.fail defaults undefined; innerFail validates every supplied value.
+    const registered: IrExpr =
+      message.fail || call.fn === "assert.ok" ? varRef(message.has, BOOL, loc) : boolLit(true, loc);
     stmts.push(
       { kind: "varDecl", localId: local.id, init: message.value, loc },
       {
         kind: "varDecl",
         localId: message.has,
-        init: { kind: "dynTest", test: "nullish", negated: true, value, type: BOOL, loc },
+        init:
+          message.fail || call.fn === "assert.ok"
+            ? {
+                kind: "dynTest",
+                test: message.fail ? "undefined" : "nullish",
+                negated: true,
+                value,
+                type: BOOL,
+                loc,
+              }
+            : boolLit(true, loc),
         loc,
       },
       {
@@ -1122,25 +1120,24 @@ function lowerAssertOk(lowerer: Lowerer, expr: ts.CallExpression, loc: SrcLoc): 
     loc,
   );
   const msgNode = expr.arguments.nodes[1];
-  let msg: IrExpr;
-  let generated = false;
-  if (!msgNode || (ts.isIdentifier(msgNode) && msgNode.text === "undefined")) {
-    // Node reads the CALLSITE LINE and slices the expression out of it
-    // (internal/errors/error_source.js) — a call spanning lines truncates
-    // at the first newline, so the compile-time text does too.
-    const source = ts.getTextOfNode(expr).split("\n", 1)[0]!;
-    const text = `The expression evaluated to a falsy value:\n\n  ${source}\n`;
-    msg = { kind: "strLit", value: text, type: STRING, loc };
-    generated = true;
-  } else {
-    msg = lowerMessageArg(lowerer, msgNode, loc).msg;
-  }
+  const source = ts.getTextOfNode(expr).split("\n", 1)[0]!;
+  const fallback = strLit(`The expression evaluated to a falsy value:\n\n  ${source}\n`, loc);
+  const message = lowerMessageArg(lowerer, msgNode, loc);
+  const msg: IrExpr = {
+    kind: "ternary",
+    cond: message.hasMsg,
+    then: message.msg,
+    else_: fallback,
+    type: STRING,
+    loc,
+  };
+  const generated = notExpr(message.hasMsg, loc);
   // Node's actual is the value, expected true, operator "==".
   stmts.push(recordOnFailure(lowerer, notExpr(pass, loc), value, boolLit(true, loc), "==", loc));
   const result: IrExpr = {
     kind: "libCall",
     fn: "assert.ok",
-    args: [pass, msg, boolLit(generated, loc)],
+    args: [pass, msg, generated],
     type: VOID,
     loc,
   };
@@ -1173,8 +1170,7 @@ function lowerAssertFail(lowerer: Lowerer, expr: ts.CallExpression, loc: SrcLoc)
     // after these statements, so it is used as is.
     const { msg: lowered, hasMsg } = lowerMessageArg(lowerer, msgNode, loc, true);
     if (lowered.kind === "varRef" && hasMsg.kind === "varRef") {
-      // A value message: generated when Node reads "Failed" for null or
-      // undefined; the runtime sets the flag for a registered value.
+      // The runtime sets the flag for a registered value.
       msg = lowered;
       generated = { kind: "unary", op: "!", operand: hasMsg, type: BOOL, loc };
     } else {

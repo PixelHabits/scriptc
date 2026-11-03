@@ -480,8 +480,8 @@ describe(`proxy env opt-in (NODE_USE_ENV_PROXY${sanitize ? ", sanitized" : ""})`
     expect(nativeRes.exitCode, nativeRes.stderr.toString("utf8")).toBe(nodeRes.exitCode);
     expectCleanStderr(nativeRes, nodeRes);
     expect(servers.proxiedRequests() - before).toBe(2);
-    // Both lanes reach the http:// target through a CONNECT tunnel.
-    expect(servers.tunneledRequests() - tunneledBefore).toBe(2);
+    // HTTP targets use absolute-form requests at the proxy.
+    expect(servers.tunneledRequests() - tunneledBefore).toBe(0);
     expect(servers.proxyAuthorizations().slice(authBefore)).toEqual([
       expectedProxyAuthorization,
       expectedProxyAuthorization,
@@ -544,7 +544,7 @@ describe(`proxy env opt-in (NODE_USE_ENV_PROXY${sanitize ? ", sanitized" : ""})`
       expect(nativeRes.exitCode, nativeRes.stderr.toString("utf8")).toBe(nodeRes.exitCode);
       expectCleanStderr(nativeRes, nodeRes);
       expect(servers.proxiedRequests() - before).toBe(2);
-      expect(servers.tunneledRequests() - tunneledBefore).toBe(2);
+      expect(servers.tunneledRequests() - tunneledBefore).toBe(0);
       expect(servers.proxyAuthorizations().slice(authBefore)).toEqual([
         expectedProxyAuthorization,
         expectedProxyAuthorization,
@@ -710,7 +710,7 @@ describe(`proxy env opt-in (NODE_USE_ENV_PROXY${sanitize ? ", sanitized" : ""})`
   );
 
   test.for(["llvm"] as const)(
-    "%s fetch sends proxy credentials only with a username and a password",
+    "%s fetch sends proxy credentials with a username and an empty password",
     async () => {
       const entry = join(fixturesRoot, "static-proxy/main.mts");
       const binary = await build(entry, "proxy-user-only");
@@ -730,7 +730,10 @@ describe(`proxy env opt-in (NODE_USE_ENV_PROXY${sanitize ? ", sanitized" : ""})`
       ]);
       expect(nativeRes.stdout.equals(nodeRes.stdout)).toBe(true);
       expect(nativeRes.exitCode, nativeRes.stderr.toString("utf8")).toBe(nodeRes.exitCode);
-      expect(servers.proxyAuthorizations().slice(authBefore)).toEqual(["", ""]);
+      expect(servers.proxyAuthorizations().slice(authBefore)).toEqual([
+        "Basic cHJveHktdXNlcjo=",
+        "Basic cHJveHktdXNlcjo=",
+      ]);
     },
     120_000,
   );

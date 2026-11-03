@@ -8,7 +8,7 @@ const mode = process.argv[2] ?? "call";
 // platforms report "unknown".
 const mapped = (): boolean | string =>
   process.platform === "linux"
-    ? readFileSync("/proc/self/maps", "utf8").includes("libnode")
+    ? readFileSync("/proc/self/maps", "utf8").includes("/libnode.so.")
     : "unknown";
 console.log("mapped before", mapped());
 if (mode !== "never") {

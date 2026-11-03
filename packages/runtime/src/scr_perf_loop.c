@@ -65,6 +65,10 @@ void scr_perf_loop_mark(void) {
 
 double scr_perf_loop_start(void) { return scr_perf_loop_start_ms; }
 
+double scr_perf_active_time(void) {
+  return scr_perf_loop_start_ms > 0 ? scr_perf_thread_cpu_ms() - scr_perf_loop_cpu0_ms : 0;
+}
+
 double scr_perf_idle_time(void) {
   if (scr_perf_loop_start_ms <= 0) return 0;
   double wall = scr_perf_now() - scr_perf_loop_start_ms;

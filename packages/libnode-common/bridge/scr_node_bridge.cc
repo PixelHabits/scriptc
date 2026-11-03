@@ -200,10 +200,10 @@ void Listen(const FunctionCallbackInfo<Value> &info) {
                  Uint32Arg(info, 4) != 0);
 }
 
-void SetMethod(Local<Context> context, Local<Object> target, const char *name,
-               v8::FunctionCallback callback) {
+void SetMethod(Isolate *isolate, Local<Context> context, Local<Object> target,
+               const char *name, v8::FunctionCallback callback) {
   target
-      ->Set(context, Utf8(context->GetIsolate(), name),
+      ->Set(context, Utf8(isolate, name),
             Function::New(context, callback).ToLocalChecked())
       .Check();
 }
@@ -313,16 +313,31 @@ char *Start(const ScrNodeBridgeHost *host, const char *bootstrap, const char *ar
   Context::Scope context_scope(context);
   Local<Object> global = context->Global();
   Local<Object> native = Object::New(isolate);
-  SetMethod(context, native, "settle", Settle);
-  SetMethod(context, native, "run", Run);
-  SetMethod(context, native, "listen", Listen);
-  SetMethod(context, native, "sharedTable", SharedTable);
-  SetMethod(context, native, "sharedGet", SharedGet);
-  SetMethod(context, native, "sharedTdz", SharedTdz);
-  SetMethod(context, native, "isExport", IsExport);
+  SetMethod(isolate, context, native, "settle", Settle);
+  SetMethod(isolate, context, native, "run", Run);
+  SetMethod(isolate, context, native, "listen", Listen);
+  SetMethod(isolate, context, native, "sharedTable", SharedTable);
+  SetMethod(isolate, context, native, "sharedGet", SharedGet);
+  SetMethod(isolate, context, native, "sharedTdz", SharedTdz);
+  SetMethod(isolate, context, native, "isExport", IsExport);
   global->Set(context, Utf8(isolate, "__scriptcNodeIslandHost"), native).Check();
   TryCatch try_catch(isolate);
-  if (node::LoadEnvironment(g_setup->env(), bootstrap).IsEmpty()) {
+  // A CommonJS bootstrap gives island import() calls the file module loader.
+  const auto load = [&](const node::StartExecutionCallbackInfoWithModule &info)
+      -> v8::MaybeLocal<Value> {
+    Local<Value> module;
+    Local<Value> name[] = {Utf8(isolate, "node:module")};
+    if (!info.native_require()->Call(context, v8::Undefined(isolate), 1, name).ToLocal(&module))
+      return {};
+    Local<Value> filename[] = {Utf8(isolate, argv0)};
+    Local<Object> entry;
+    if (!module.As<Function>()->NewInstance(context, 1, filename).ToLocal(&entry)) return {};
+    Local<Value> compile;
+    if (!entry->Get(context, Utf8(isolate, "_compile")).ToLocal(&compile)) return {};
+    Local<Value> source[] = {Utf8(isolate, bootstrap), filename[0]};
+    return compile.As<Function>()->Call(context, entry, 2, source);
+  };
+  if (node::LoadEnvironment(g_setup->env(), load).IsEmpty()) {
     std::string message = "the Node island bootstrap failed";
     if (try_catch.HasCaught()) {
       Local<Value> stack;
@@ -966,10 +981,10 @@ class Fresh final : public cppgc::GarbageCollected<Fresh> {
   }
 };
 
-class Reach final : public cppgc::GarbageCollected<Reach> {
+class Reach final : public v8::Object::Wrappable {
  public:
   Reach(uint32_t id, uint32_t gen) : id_(id), gen_(gen) {}
-  void Trace(cppgc::Visitor *visitor) const {
+  void Trace(cppgc::Visitor *visitor) const override {
     std::lock_guard<std::mutex> lock(g_gc_lock);
     if (g_gc_mode != kExact) return; // Roots traces everything
     auto it = g_export_gc.find(id_);
@@ -1770,6 +1785,12 @@ Local<Object> CollectionView(Isolate *isolate, Local<Context> context, Local<Val
   return Object::New(isolate);
 }
 
+void ArrayInspect(const FunctionCallbackInfo<Value> &info) {
+  Local<Value> value = info.This();
+  if (value->IsProxy()) value = value.As<v8::Proxy>()->GetTarget();
+  info.GetReturnValue().Set(value);
+}
+
 Local<Object> ArrayProxy(Isolate *isolate, Local<Context> context, Local<Value> data) {
   Local<Object> handler = Object::New(isolate);
   struct Trap {
@@ -1785,7 +1806,11 @@ Local<Object> ArrayProxy(Isolate *isolate, Local<Context> context, Local<Value> 
   for (const Trap &t : traps)
     handler->Set(context, Utf8(isolate, t.name), Function::New(context, t.fn, data).ToLocalChecked())
         .Check();
-  return v8::Proxy::New(context, v8::Array::New(isolate, 0), handler).ToLocalChecked();
+  Local<v8::Array> target = v8::Array::New(isolate, 0);
+  target->DefineOwnProperty(
+      context, v8::Symbol::For(isolate, Utf8(isolate, "nodejs.util.inspect.custom")),
+      Function::New(context, ArrayInspect).ToLocalChecked(), v8::DontEnum).Check();
+  return v8::Proxy::New(context, target, handler).ToLocalChecked();
 }
 
 // Arrays, Maps and Sets keep a copy of their contents where util.inspect

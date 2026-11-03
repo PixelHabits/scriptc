@@ -420,6 +420,11 @@ static void scr_bv_cleanup(void) {
   scr_bv_buffer = NULL;
 }
 
+static ScrDyn *scr_bv_string_length(ScrClosure *closure, ScrDyn *const *args, size_t argc) {
+  (void)closure; (void)args; (void)argc;
+  return scr_bv_unsupported("Buffer.stringLength");
+}
+
 ScrDyn *scr_buffer_constructor_value(void) {
   if (scr_bv_buffer) return scr_dyn_retain(scr_bv_buffer);
   static const struct { const char *name; uint32_t length; ScrDynThunk thunk; } statics[] = {
@@ -427,13 +432,14 @@ ScrDyn *scr_buffer_constructor_value(void) {
     {"copyBytesFrom", 3, scr_bv_copy_bytes_from},
     {"of", 0, scr_bv_of},
     {"alloc", 3, scr_bv_alloc},
-    {"allocUnsafe", 1, scr_bv_alloc_unsafe},
+    {"allocUnsafe", 2, scr_bv_alloc_unsafe},
     {"allocUnsafeSlow", 1, scr_bv_alloc_unsafe_slow},
     {"isBuffer", 1, scr_bv_is_buffer},
     {"compare", 2, scr_bv_compare},
     {"isEncoding", 1, scr_bv_is_encoding},
     {"concat", 2, scr_bv_concat},
     {"byteLength", 2, scr_bv_byte_length},
+    {"stringLength", 2, scr_bv_string_length},
   };
   double pool_size = scr_buffer_pool_size();
   scr_bv_buffer = scr_dyn_new_func(scr_closure_new(NULL, 0), scr_bv_call, 3, "native:Buffer", "Buffer");

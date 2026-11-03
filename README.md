@@ -13,7 +13,7 @@ scriptc is experimental and supports a subset of JavaScript, TypeScript, and Nod
 
 ## Installation
 
-Install with Node.js 24 or later and npm:
+Install with Node.js 26.13.0 or later and npm:
 
 ```console
 $ npm install -g scriptc

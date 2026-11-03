@@ -1217,6 +1217,18 @@ export function hostGlobalDiag(name: string, loc: SrcLoc): ScrDiagnostic {
   };
 }
 
+/** Temporal is present for capability probes; native member use refuses. */
+export function temporalNativeDiag(loc: SrcLoc): ScrDiagnostic {
+  return {
+    code: "SC2020",
+    message: "Temporal is not compiled natively yet",
+    loc,
+    milestone: "later",
+    hint: "run the module in a Node island (--node-islands=auto)",
+    reason: "host-global",
+  };
+}
+
 /** A stdlib-global snapshot reached a site that needs its VALUE (an
  * argument, a return, a stored field). The declaration emitted no storage
  * — alias plumbing only serves member and call reads — and the global's

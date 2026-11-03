@@ -17,47 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct ScrSym {
-  size_t rc;
-  ScrStr *desc;    /* owned; NULL = no description (Symbol()) */
-  ScrStr *reg_key; /* owned; non-NULL exactly for Symbol.for symbols */
-  struct ScrSym *reg_next; /* the registry's intrusive chain */
-  /* The symbol's checked-dynamic box while one is alive (not retained: the
-   * box retains the symbol and clears this when it is freed), shared by
-   * every conversion of the symbol to a checked value. */
-  ScrDyn *box;
-};
-
-ScrSym *scr_sym_retain(ScrSym *s) {
-  if (s->rc != SIZE_MAX) s->rc++;
-  return s;
-}
-
-void scr_sym_release(ScrSym *s) {
-  if (!s || s->rc == SIZE_MAX) return;
-  if (--s->rc == 0) {
-    scr_str_release(s->desc);
-    scr_str_release(s->reg_key);
-    free(s);
-  }
-}
-
-void *scr_sym_retain_v(void *p) { return scr_sym_retain(p); }
-void scr_sym_release_v(void *p) { scr_sym_release(p); }
-
-ScrSym *scr_sym_new(ScrStr *desc) {
-  ScrSym *s = malloc(sizeof(ScrSym));
-  if (!s) {
-    scr_trap("scriptc: out of memory\n");
-  }
-  s->rc = 1;
-  s->desc = desc ? scr_str_retain(desc) : NULL;
-  s->reg_key = NULL;
-  s->reg_next = NULL;
-  s->box = NULL;
-  return s;
-}
-
 /* ── the Symbol.for global registry ──────────────────────────────────── */
 
 static SCR_TL ScrSym *g_sym_registry = NULL;
@@ -158,38 +117,6 @@ ScrSym *scr_sym_for(ScrStr *key) {
     scr_dyn_release(custom);
   }
   return s;
-}
-
-ScrStr *scr_sym_desc(ScrSym *s) { return s->desc ? scr_str_retain(s->desc) : NULL; }
-
-ScrStr *scr_sym_key_for(ScrSym *s) { return s->reg_key ? scr_str_retain(s->reg_key) : NULL; }
-
-/* The release of a symbol's shared box: the box is going away. */
-static void scr_sym_release_box(ScrSym *s) {
-  s->box = NULL;
-  scr_sym_release(s);
-}
-
-ScrDyn *scr_dyn_new_symbol(ScrSym *value) {
-  if (value->box) return scr_dyn_retain(value->box);
-  ScrDyn *box = scr_dyn_symbol_ref(scr_sym_retain(value), scr_sym_release_box, scr_sym_to_string, scr_sym_desc);
-  value->box = box;
-  return box;
-}
-
-ScrStr *scr_sym_to_string(ScrSym *s) {
-  /* "Symbol(desc)" — Symbol.prototype.toString: an absent description
-   * prints as the empty parenthesis pair ("Symbol()"), exactly Node
-   * (Symbol() and Symbol(undefined) alike). */
-  size_t dlen = s->desc ? s->desc->len : 0;
-  size_t len = 7 + dlen + 1; /* "Symbol(" + desc + ")" */
-  ScrStr *out = scr_str_alloc_raw(len, len);
-  memcpy(out->data, "Symbol(", 7);
-  if (dlen > 0) memcpy(out->data + 7, s->desc->data, dlen);
-  out->data[7 + dlen] = ')';
-  out->data[len] = '\0';
-  out->len = len;
-  return out;
 }
 
 /* ── assert strict equality over symbols (lives here for the same reason

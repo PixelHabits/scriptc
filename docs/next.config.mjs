@@ -8,7 +8,7 @@ const legacySlugs = ["quickstart", "coverage", "dependencies", "ffi", "native-ob
 // The compatibility page fetches its data under a content hash of the
 // committed artifact, so a deploy never serves a cached older copy, and
 // checks the row count it expects. Both are derived here at build time.
-const compatibilityArtifact = readFileSync(new URL("./src/generated/node-v24-compatibility.json", import.meta.url), "utf8");
+const compatibilityArtifact = readFileSync(new URL("./src/generated/node-v26-compatibility.json", import.meta.url), "utf8");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

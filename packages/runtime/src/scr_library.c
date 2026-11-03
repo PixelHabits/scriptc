@@ -39,6 +39,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Library calls have no process warning queue. */
+void scr_crypto_hash_shake_warnings(void) {}
+
 /* ── sink registration + poison ───────────────────────────────────────── */
 
 static SCR_TL ScrLibSinkFn scr_library_sink = NULL;

@@ -17,7 +17,7 @@ const readJson = (path: string) => JSON.parse(readFileSync(join(repoRoot, path),
 describe("the libnode pin", () => {
   test("is the repository's pinned Node release", () => {
     const pin = readPin();
-    expect(pin.nodeVersion).toBe(readJson("internal/compatibility/node-v24.json").version);
+    expect(pin.nodeVersion).toBe(readJson("internal/compatibility/node-v26.json").version);
     expect(pin.nodeVersion).toBe(readFileSync(join(repoRoot, ".node-version"), "utf8").trim());
     expect(pin.tarballSha256).toMatch(/^[0-9a-f]{64}$/);
   });

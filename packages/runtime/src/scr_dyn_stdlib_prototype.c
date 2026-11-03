@@ -61,7 +61,7 @@ static const DynDatePrototypeMember dyn_date_prototype_members[] = {
   {"setUTCMinutes", NULL, 3}, {"setHours", NULL, 4}, {"setUTCHours", NULL, 4},
   {"setDate", NULL, 1}, {"setUTCDate", NULL, 1}, {"setMonth", NULL, 2},
   {"setUTCMonth", NULL, 2}, {"setFullYear", NULL, 3}, {"setUTCFullYear", NULL, 3},
-  {"setYear", NULL, 1},
+  {"setYear", NULL, 1}, {"toTemporalInstant", NULL, 0},
 };
 
 /* One prototype object per thread, thread-local like the invoke unit's

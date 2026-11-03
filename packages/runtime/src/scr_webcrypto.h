@@ -43,6 +43,22 @@ void scr_wc_missing_member(const char *dict, const char *member);
 ScrDyn *scr_wc_member(const ScrDyn *dict, const char *key);
 ScrStr *scr_wc_algorithm_name(ScrDyn *identifier, const char *dict);
 const char *scr_wc_digest_algorithm(ScrDyn *identifier, const char *method);
+ScrDyn *scr_wc_hash_convert(const ScrDyn *dict, const char *dict_name);
+/* The JsonWebKey dictionary members a key reads, converted in Web IDL's
+ * member order (every DOMString member converts, so a Symbol or a
+ * throwing toString in any of them rejects like Node). */
+typedef struct {
+  ScrStr *alg, *k, *kty, *use;
+  bool has_ext, ext;
+  ScrDyn *key_ops; /* array of strings, or NULL */
+  ScrDyn *dict;    /* the converted dictionary: a null-prototype object */
+} ScrWcJwk;
+void scr_wc_jwk_drop(ScrWcJwk *jwk);
+bool scr_wc_key_data(const char *prefix, ScrDyn *value, ScrBytes **data, ScrWcJwk *jwk);
+bool scr_wc_key_data_matches(const char *format, ScrDyn *value, const ScrWcJwk *jwk);
+bool scr_wc_validate_jwk(const ScrWcJwk *jwk, const char *kty, bool extractable, long usages,
+                         const char *expected_use);
+const char *scr_wc_hash_member(ScrDyn *hash, const char *dict, const char *method);
 const char *scr_wc_lookup(const char *const *names, size_t count, const ScrStr *name);
 ScrDyn *scr_wc_cstr(const char *s);
 ScrPromise *scr_wc_rejected(void);

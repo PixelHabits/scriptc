@@ -2,7 +2,7 @@
  * ciphers: aes-128/192/256 in CBC, CTR and GCM modes and
  * chacha20-poly1305. A cipher is a native dyn handle; its update(),
  * final(), setAAD(), setAutoPadding(), getAuthTag() and setAuthTag()
- * methods follow Node 24's lib/internal/crypto/cipher.js argument handling
+ * methods follow Node's lib/internal/crypto/cipher.js argument handling
  * and src/crypto/crypto_cipher.cc state machine. CBC buffering and PKCS#7
  * padding follow OpenSSL 3's generic block provider, so every update()
  * returns the same number of bytes as Node's. String output goes through
@@ -109,7 +109,7 @@ static const ScCipherSpec sc_specs[] = {
   {"aes256-wrap-pad-inv", SC_WRAP_PAD, 32, false, true},
 };
 
-/* Ciphers OpenSSL 3 keeps in its legacy provider, which Node 24 does not
+/* Ciphers OpenSSL 3 keeps in its legacy provider, which Node does not
  * load: crypto.getCipherInfo() knows them, and createCipheriv checks their
  * IV length, then fails with OpenSSL's "unsupported" error. */
 static const struct {
@@ -117,7 +117,7 @@ static const struct {
   unsigned iv_len;
 } sc_legacy[] = {SCR_CIPHER_LEGACY_ENTRIES};
 
-/* crypto.getCiphers() on Node 24.22 (OpenSSL 3.5). Names in this list that
+/* crypto.getCiphers() on Node (OpenSSL 3.5). Names in this list that
  * have no implementation throw a coded SC2020 error instead of Node's
  * ERR_CRYPTO_UNKNOWN_CIPHER. */
 static const char *const sc_known[] = {SCR_CIPHER_KNOWN_NAMES};
@@ -134,7 +134,7 @@ typedef struct ScCipher {
   bool des;          /* triple DES rather than AES */
   unsigned bs;       /* the block size: 16 for AES, 8 for triple DES */
   bool data_started; /* a non-empty update() ran, so non-empty AAD is refused */
-  int tag_len;       /* SC_NO_TAG until known */
+  int tag_len;       /* SC_NO_TAG for a mode without a tag */
   int tag_state;
   unsigned char tag[16];
   unsigned char block[16]; /* CBC: chaining value; CTR: counter block; CFB, OFB:
@@ -653,13 +653,15 @@ static ScrDyn *sc_cipher_new(bool decrypt, ScrDyn *cipher, ScrDyn *key, ScrDyn *
     scr_str_release(message);
     goto done;
   }
+  /* InitAuthenticated: GCM and chacha20-poly1305 default to 16-byte tags,
+   * and setAuthTag() takes only a tag of the configured length. */
   int tag_len = SC_NO_TAG;
-  if (spec->mode == SC_GCM && tag_option >= 0) {
-    if (!sc_valid_gcm_tag((unsigned long)tag_option)) {
+  if (spec->mode == SC_GCM) {
+    if (tag_option >= 0 && !sc_valid_gcm_tag((unsigned long)tag_option)) {
       sc_invalid_tag((unsigned long)tag_option);
       goto done;
     }
-    tag_len = (int)tag_option;
+    tag_len = tag_option < 0 ? 16 : (int)tag_option;
   } else if (spec->mode == SC_CHACHA) {
     tag_len = tag_option < 0 ? 16 : (int)(tag_option > 16 ? 17 : tag_option);
     if (tag_len < 1 || tag_len > 16) {
@@ -1623,7 +1625,6 @@ static ScrBytes *sc_final_bytes(ScCipher *c) {
     } else if (c->decrypt) {
       ok = c->tag_state == SC_TAG_SET_BY_USER && sc_tag_equal(full, c->tag, (size_t)c->tag_len);
     } else {
-      if (c->tag_len == SC_NO_TAG) c->tag_len = 16;
       memcpy(c->tag, full, (size_t)c->tag_len);
       c->tag_state = SC_TAG_COMPUTED;
     }
@@ -1636,9 +1637,9 @@ static ScrBytes *sc_final_bytes(ScCipher *c) {
     if (!backend) {
       /* No tag is computed or compared. */
     } else if (c->decrypt) {
-      /* Decryption without setAuthTag() fails. Node 24.22 skips the check
+      /* Decryption without setAuthTag() fails, where Node skips the check
        * when authTagLength was not passed either and returns unverified
-       * plaintext; this keeps Node 24.15's behavior. */
+       * plaintext. */
       ok = c->tag_state == SC_TAG_SET_BY_USER && sc_tag_equal(full, c->tag, (size_t)c->tag_len);
     } else {
       memcpy(c->tag, full, (size_t)c->tag_len);
@@ -1742,19 +1743,6 @@ static ScrDyn *sc_get_auth_tag(ScCipher *c) {
   return result;
 }
 
-/* DEP0182 is emitted through process.emitWarning, so it reports on the
- * next tick. Node gates it on a one-shot environment flag, so a process
- * reports it at most once. */
-static SCR_TL bool sc_dep0182_emitted = false;
-
-static void sc_dep0182_tick(void) {
-  static const char message[] = "Using AES-GCM authentication tags of less than 128 bits without specifying "
-                                "the authTagLength option when initializing decryption is deprecated.";
-  ScrStr *text = scr_str_new(message, sizeof message - 1);
-  scr_emit_warning("DeprecationWarning", "DEP0182", text);
-  scr_str_release(text);
-}
-
 static ScrDyn *sc_set_auth_tag(ScCipher *c, ScrDyn *self, ScrDyn *buffer, ScrDyn *encoding) {
   ScrBytes *tag = sc_buffer_or_view(buffer, "buffer", encoding);
   if (!tag) return NULL;
@@ -1764,18 +1752,11 @@ static ScrDyn *sc_set_auth_tag(ScCipher *c, ScrDyn *self, ScrDyn *buffer, ScrDyn
     return NULL;
   }
   size_t len = tag->len;
-  bool valid = c->mode == SC_GCM ? (c->tag_len == SC_NO_TAG || (size_t)c->tag_len == len) && sc_valid_gcm_tag(len)
-                                 : (size_t)c->tag_len == len;
-  if (!valid) {
+  if ((size_t)c->tag_len != len) {
     scr_bytes_release(tag);
     sc_invalid_tag((unsigned long)len);
     return NULL;
   }
-  if (c->mode == SC_GCM && c->tag_len == SC_NO_TAG && len != 16 && !sc_dep0182_emitted) {
-    sc_dep0182_emitted = true;
-    scr_next_tick_raw(sc_dep0182_tick);
-  }
-  c->tag_len = (int)len;
   memcpy(c->tag, tag->data, len);
   c->tag_state = SC_TAG_SET_BY_USER;
   if (c->mode == SC_CCM) c->ccm_tag_set = true;

@@ -372,7 +372,7 @@ void scr_js_buffers_arm(void);
 /* The guard around code that Node refuses on such a view. `label` names the
  * operation exactly as Node's message does ("%TypedArray%.prototype.fill",
  * "DataView.prototype.getUint8", "get DataView.prototype.byteLength", ...):
- * the message is "Cannot perform <label> on a detached ArrayBuffer".
+ * DataView and TypedArray errors also name out-of-bounds ArrayBuffers.
  * Answers true when the view is usable. */
 bool scr_js_bytes_live(const ScrBytes *b);
 void scr_js_bytes_throw_detached(const char *label);
@@ -555,6 +555,10 @@ ScrStr *scr_text_decode_legacy_options(const ScrBytes *b, double encoding, bool 
  * scr_bytes.c; keeping this separate from scr_text_decode means default
  * UTF-8 users do not retain the legacy mapping tables. Borrows; +1. */
 ScrStr *scr_text_decode_legacy(const ScrBytes *b, double encoding);
+
+/* Strict Uint8Array decoding into a fixed view. Reports consumed input and
+ * complete bytes written, including writes before a pending SyntaxError. */
+bool scr_bytes_decode_uint8(ScrStr *, ScrBytes *, bool hex, bool url, int last, size_t *read, size_t *written);
 
 /* Buffer.from(string, enc): "utf8" copies the bytes; "hex" parses pairs
  * and stops at the first invalid/odd tail (Node-lenient); "base64" and

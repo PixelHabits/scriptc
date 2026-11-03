@@ -18,10 +18,26 @@ The double-to-shortest-decimal core of Ryū (d2s and its headers only — the fl
 
 ## v8-ieee754/ (derived source)
 
-- Project: https://github.com/v8/v8, `src/base/ieee754.cc` as Node v24.22.1 bundles it (`deps/v8`, V8 13.6.233.17)
+- Project: https://github.com/v8/v8, `src/base/ieee754.cc` as Node v26.13.0 bundles it (`deps/v8`, V8 14.6.202.34-node.40)
 - License: BSD-3-Clause (V8), with fdlibm's notice (see v8-ieee754/LICENSE)
 
 V8's adaptation of fdlibm, the code behind Node's Math.sin, Math.exp, Math.cbrt and the other transcendental functions on every platform. `src/scr_ieee754.c` is a C port of the file, so compiled Math members print the values Node prints. The function bodies are unchanged; the port renames the entry points (`scr_ieee754_*`), gives the kernels internal linkage, and replaces V8's C++ helpers (bit casts, wraparound arithmetic, NaN and infinity constants) with C. `legacy::pow` is not ported: Node's Math.pow calls the platform pow. To update, re-fetch `deps/v8/src/base/ieee754.cc` at the new Node version and repeat the same conversion.
+
+## V8 array sort (derived source)
+
+- Project: https://github.com/nodejs/node/blob/v26.13.0/deps/v8/third_party/v8/builtins/array-sort.tq
+- Version: V8 14.6.202.34-node.40, bundled with Node v26.13.0
+- License: BSD-3-Clause (V8)
+
+`src/scr_array.c` and `packages/compiler/src/frontend/lowering/lower-array-sort.ts` port the comparator sort's run detection, binary insertion and TimSort merges. `Array.prototype.sort` uses binary insertion directly below eight non-undefined elements; `Array.prototype.toSorted` uses TimSort at every length. Comparator calls and their order are observable, including when a comparator throws or changes the source array.
+
+## Undici body cloning (derived behavior)
+
+- Project: https://github.com/nodejs/node/blob/v26.13.0/deps/undici/src/lib/web/fetch/body.js
+- Version: Undici 8.12.2, bundled with Node v26.13.0
+- License: MIT (Undici)
+
+`src/scr_fetch.c` and `src/scr_webstreams.c` implement `cloneBody` by teeing the source and applying structured clone to the second branch's chunks. The original branch keeps the source chunks; each clone gets separate byte storage. Public `ReadableStream.tee()` keeps the same chunks in both branches.
 
 ## quickjs-ng/
 
@@ -61,10 +77,10 @@ The `dec/` and `enc/` directories share file names (`static_init.c`, `state.h`, 
 ## zstd/
 
 - Project: https://github.com/facebook/zstd
-- Version: 1.5.7, the release Node v24.22.1 bundles in `deps/zstd`
+- Version: 1.5.7, the release Node v26.13.0 bundles in `deps/zstd`
 - License: BSD-3-Clause (see zstd/LICENSE)
 
-The codec behind node:zlib's zstd functions and streams (see packages/runtime/src/scr_zstd.c). Node's `deps/zstd` carries the upstream release as its `lib/` directory beside the gyp files; `lib/common`, `lib/compress`, `lib/decompress`, `lib/zstd.h`, `lib/zstd_errors.h` and `LICENSE` are vendored in that layout. The dictionary builder, the legacy decoder, the assembly decoder, the programs, tests and build machinery are not, and no vendored file is modified. Because the version is Node's and it compiles the same units with the same defines, compressed frames match Node's for the same parameters.
+The codec behind node:zlib's zstd functions and streams (see packages/runtime/src/scr_zstd.c). Node's `deps/zstd` carries the upstream release as its `lib/` directory beside the gyp files; `lib/common`, `lib/compress`, `lib/decompress`, `lib/zstd.h`, `lib/zstd_errors.h` and `LICENSE` are vendored in that layout. The dictionary builder, the legacy decoder, the assembly decoder, the programs, tests and build machinery are not, and no vendored file is modified. The vendored files match Node v26.13.0 byte for byte. The async one-shot compressor supplies the input size as `pledgedSrcSize` when the caller omits it; synchronous calls and streams use their supplied parameters.
 
 Each build compiles the units and defines Node's `deps/zstd/zstd.gyp` selects: every `.c` file under those three directories, with `XXH_NAMESPACE=ZSTD_`, `ZSTD_DISABLE_ASM`, and `ZSTD_MULTITHREAD` wherever the target has threads (WASI does not, so its build compresses on one thread). The table is `zstdInputs` in packages/runtime-pack-common/scripts/zstd-inputs.mjs (runtime packs) and in packages/compiler/src/backend/vendor-inputs.ts (Zig cross builds and the sanitized runtime), and a unit test keeps the two identical. To update, copy the same files from the `deps/zstd` of the Node version scriptc follows and bump `ZSTD_VERSION` in vendor-inputs.ts.
 

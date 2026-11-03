@@ -628,7 +628,7 @@ static bool dyn_sort_less(void *ctx, uint64_t xs, uint64_t ys, bool *failed) {
   scr_str_release(ystr);
   return c < 0;
 }
-static bool dyn_arr_sort(ScrDyn *recv, ScrDyn *cmp) {
+static bool dyn_arr_sort(ScrDyn *recv, ScrDyn *cmp, bool copy) {
   size_t len = recv->v.arr.len;
   uint64_t *work = (uint64_t *)malloc((len ? len : 1) * sizeof(uint64_t));
   if (!work) return true; /* OOM: answer the array unsorted over crashing */
@@ -638,7 +638,7 @@ static bool dyn_arr_sort(ScrDyn *recv, ScrDyn *cmp) {
     if (item->kind == SCR_DYN_UNDEF) undefined++;
     else work[count++] = (uint64_t)(uintptr_t)scr_dyn_retain(item);
   }
-  bool ok = scr_sort_slots_with(work, count, dyn_sort_less, cmp);
+  bool ok = scr_sort_slots_with(work, count, dyn_sort_less, cmp, copy);
   if (ok) {
     /* Write back into whatever the array holds NOW (a mutating comparator
      * may have replaced entries): the work list's +1 moves in, then the
@@ -1707,7 +1707,7 @@ static ScrDyn *scr_dyn_invoke_impl(
         scr_throw_error(SCR_ERR_TYPE, scr_jb_finish(&b));
         return NULL;
       }
-      if (len > 1 && !dyn_arr_sort(recv, cmp->kind == SCR_DYN_FUNC ? cmp : NULL)) return NULL;
+      if (len > 1 && !dyn_arr_sort(recv, cmp->kind == SCR_DYN_FUNC ? cmp : NULL, false)) return NULL;
       return scr_dyn_retain(recv);
     }
     if ((mid == DYN_M_toSorted)) {
@@ -1719,7 +1719,7 @@ static ScrDyn *scr_dyn_invoke_impl(
       }
       ScrDyn *out = scr_dyn_new_arr();
       for (size_t i = 0; i < len; i++) if (!dyn_arr_copy_item(out, recv, i, false)) { scr_dyn_release(out); return NULL; }
-      if (len > 1 && !dyn_arr_sort(out, cmp->kind == SCR_DYN_FUNC ? cmp : NULL)) {
+      if (len > 1 && !dyn_arr_sort(out, cmp->kind == SCR_DYN_FUNC ? cmp : NULL, true)) {
         scr_dyn_release(out);
         return NULL;
       }

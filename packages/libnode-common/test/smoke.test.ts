@@ -2,9 +2,8 @@
 // scriptc runtime does. Packs are not built by the ordinary build, so this
 // runs only when SCRIPTC_LIBNODE names a pack directory (a CI artifact of
 // the libnode-packs workflow, or a local build:native output). CI's
-// fallback development pack (dev-pack.json) is not a package: it has no
-// package.json and may carry a different Node patch release, so it is
-// exercised by the Node island tests instead.
+// fallback development pack (dev-pack.json) has no package.json, so the
+// composite action smoke-tests it before running the Node island tests.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";

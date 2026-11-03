@@ -1,3 +1,4 @@
+import { isTemporalValue } from "../temporal.js";
 /* typeof expressions and the typeof tests they lower to. */
 import * as ts from "../../ts7/adapter.js";
 import type { Lowerer } from "../lowerer.js";
@@ -33,12 +34,7 @@ import { isSafeToDiscard, isSafeToRepeat } from "./evaluation-safety.js";
 import { varRef } from "../../../ir/build.js";
 import { isExecExceptionType, refuseExecExceptionCode } from "../builtins/errors.js";
 import { InternalCompilerError } from "../../../errors.js";
-import { TEMPORAL_GLOBAL } from "../../builtin-modules.js";
-import {
-  ambientUndefinedFnSymbolOf,
-  ambientUndefinedVarSymbolOf,
-  isTemporalGlobalRoot,
-} from "../lower-namespaces.js";
+import { ambientUndefinedFnSymbolOf, ambientUndefinedVarSymbolOf } from "../lower-namespaces.js";
 import { isF64HandleTyped } from "../f64-handles.js";
 import { hostGlobalNameOfTypeofOperand } from "../host-globals.js";
 
@@ -50,6 +46,8 @@ export function lowerTypeofExpr(lowerer: Lowerer, expr: ts.TypeOfExpression, loc
   // answer "undefined".
   if (hostGlobalNameOfTypeofOperand(lowerer, expr.expression) !== null)
     return { kind: "strLit", value: "function", type: STRING, loc };
+  if (isTemporalValue(lowerer, expr.expression))
+    return { kind: "strLit", value: "object", type: STRING, loc };
   const webAssembly = lowerWebAssemblyTypeof(lowerer, expr.expression);
   if (webAssembly) return webAssembly;
   if (lowerer.isStdlibGlobal(expr.expression, "process"))
@@ -179,15 +177,6 @@ export function lowerTypeofExpr(lowerer: Lowerer, expr: ts.TypeOfExpression, loc
   // declarations type some (AbortSignal) without a construct signature,
   // so neither the operand nor the type can answer; the read has no
   // effects.
-  // `typeof globalThis.<temporal>`: the global object has no such
-  // property in Node 24.
-  if (
-    ts.isPropertyAccessExpression(tested) &&
-    tested.name.text === TEMPORAL_GLOBAL &&
-    stdlibGlobalNameOf(lowerer, tested.expression) === "globalThis"
-  ) {
-    return { kind: "strLit", value: "undefined", type: STRING, loc };
-  }
   if (constructorGlobalTypeof(lowerer, tested) !== null)
     return { kind: "strLit", value: "function", type: STRING, loc };
   // `typeof global.setTimeout` / `typeof globalThis.queueMicrotask`: a
@@ -227,15 +216,6 @@ export function lowerTypeofExpr(lowerer: Lowerer, expr: ts.TypeOfExpression, loc
     if (!sym) {
       return { kind: "strLit", value: "undefined", type: STRING, loc };
     }
-    // Node 24 defines no temporal global: typeof answers "undefined"
-    // without reading it, like any undeclared name.
-    if (isTemporalGlobalRoot(lowerer, tested, sym)) {
-      return { kind: "strLit", value: "undefined", type: STRING, loc };
-    }
-    // A name the program declares ambiently but nothing defines
-    // (`declare const Bun`, `declare function f(): void`): Node erases the
-    // declaration, so typeof answers "undefined" without reading it, where
-    // a read throws ReferenceError.
     if (
       ambientUndefinedVarSymbolOf(lowerer, tested) ||
       ambientUndefinedFnSymbolOf(lowerer, tested)

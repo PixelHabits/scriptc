@@ -56,7 +56,6 @@ import { InternalCompilerError } from "../../errors.js";
  * hierarchy registration. */
 import { fsStreamClassOf, lowerFsStreamNew } from "./builtins/fs-streams.js";
 import { codeGenerationCalleeOf, lowerCodeGenerationCall } from "./code-generation.js";
-import { TEMPORAL_GLOBAL } from "../builtin-modules.js";
 import * as ts from "../ts7/adapter.js";
 import { lowerZlibStreamNew, zlibClassName, zlibStreamModeOf } from "./builtins/compression.js";
 import { everyStmtList } from "../../ir/traverse.js";
@@ -208,7 +207,6 @@ import {
   ambientUndefReadType,
   ambientUndefVarRootOf,
   ambientUndefinedFnSymbolOf,
-  contextualUndefReadType,
   fenceEarlyAliasUse,
   fenceEarlyNsMemberRef,
   nsMemberIdentOf,
@@ -10625,16 +10623,6 @@ export function lowerNew(lowerer: Lowerer, expr: ts.NewExpression): IrExpr {
   // --disallow-code-generation-from-strings (code-generation.ts).
   if (codeGenerationCalleeOf(lowerer, expr.expression) === "Function")
     return lowerCodeGenerationCall(lowerer, expr, "Function");
-  // `new <temporal>.X(...)`: Node 24 has no such global, so the callee's
-  // root read throws the ReferenceError before any argument evaluates.
-  {
-    const root = ambientUndefVarRootOf(lowerer, expr.expression);
-    if (root !== null && root.text === TEMPORAL_GLOBAL) {
-      const t =
-        ambientUndefReadType(lowerer, expr) ?? contextualUndefReadType(lowerer, expr) ?? F64;
-      return nsUndefRead(lowerer, root.text, expr, t);
-    }
-  }
   // `new (require("./x").C)()`: the module's %init at the require's
   // position, then construction through the member as for a binding.
   if (ts.isPropertyAccessExpression(expr.expression) && !expr.expression.questionDotToken) {

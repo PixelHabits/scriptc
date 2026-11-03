@@ -478,10 +478,15 @@ function lowerNodeReadable(
                 {
                   kind: "exprStmt",
                   expr: {
-                    kind: "libCall",
-                    fn: "stream.iteratorClose",
-                    args: [streamRef()],
-                    type: plan.type,
+                    kind: "awaitExpr",
+                    value: {
+                      kind: "libCall",
+                      fn: "stream.iteratorClose",
+                      args: [streamRef()],
+                      type: promiseT,
+                      loc,
+                    },
+                    type: DYN,
                     loc,
                   },
                   loc,

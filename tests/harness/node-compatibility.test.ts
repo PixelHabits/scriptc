@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 
 const repoRoot = join(import.meta.dirname, "../..");
 const snapshot = JSON.parse(
-  readFileSync(join(repoRoot, "internal/compatibility/generated/node-v24-internal.json"), "utf8"),
+  readFileSync(join(repoRoot, "internal/compatibility/generated/node-v26-internal.json"), "utf8"),
 ) as {
   rows: Array<{
     chapter: string;

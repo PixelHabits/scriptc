@@ -1,4 +1,4 @@
-/* crypto.getCiphers() on Node 24.22 (OpenSSL 3.5), the names a cipher
+/* crypto.getCiphers() on Node 26.13.0 (OpenSSL 3.5), the names a cipher
  * option can give. The cipher and pki units each include it: names
  * without an implementation there throw a coded SC2020 error instead of
  * Node's ERR_CRYPTO_UNKNOWN_CIPHER. */
@@ -38,7 +38,7 @@
   "id-smime-alg-cms3deswrap", "sm4", "sm4-cbc", "sm4-ccm", "sm4-cfb", "sm4-cfb128", "sm4-ctr", \
   "sm4-ecb", "sm4-gcm", "sm4-ofb", "sm4-ofb128", "sm4-xts",
 
-/* The ciphers OpenSSL 3 keeps in its legacy provider, which Node 24 does
+/* The ciphers OpenSSL 3 keeps in its legacy provider, which Node 26.13.0 does
  * not load, with their IV lengths: OpenSSL knows their names, and using
  * them fails with its "unsupported" error. */
 #define SCR_CIPHER_LEGACY_ENTRIES \
@@ -51,7 +51,7 @@
   {"seed-ofb", 16}, {"idea", 8}, {"idea-cbc", 8}, {"idea-ecb", 0}, {"idea-cfb", 8}, {"idea-ofb", 8},
 
 /* The OID texts OpenSSL's providers register as cipher aliases, with the
- * name each fetches (crypto.getCipherInfo(oid).name on Node 24.22). */
+ * name each fetches (crypto.getCipherInfo(oid).name on Node 26.13.0). */
 #define SCR_CIPHER_OID_ALIASES \
   {"2.16.840.1.101.3.4.1.1", "aes-128-ecb"}, {"2.16.840.1.101.3.4.1.2", "aes-128-cbc"}, \
   {"2.16.840.1.101.3.4.1.3", "aes-128-ofb"}, {"2.16.840.1.101.3.4.1.4", "aes-128-cfb"}, \

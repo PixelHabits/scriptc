@@ -1,6 +1,6 @@
 /* Identifier references in expression position: lowerExprInner's identifier branch and its helpers. */
 import { isJsIteratorGlobal, iteratorConstructorExpr } from "../iterator-prototype.js";
-import { globalMemberValue, tsUntypedGlobalValue } from "../global-values.js";
+import { globalMemberValue, localStorageValue, tsUntypedGlobalValue } from "../global-values.js";
 import { hostGlobalCallTarget, hostGlobalNameOfIdentifier } from "../host-globals.js";
 import { hostGlobalValue } from "../host-global-values.js";
 import { predeclareForwardClass } from "../lower-stmts.js";
@@ -66,7 +66,6 @@ import {
   ambientUndefinedVarSymbolOf,
   contextualUndefReadType,
   fenceEarlyAliasUse,
-  isTemporalGlobalRoot,
   cjsNamespaceImportDep,
   lowerNsIdentifierValue,
   nsUndefRead,
@@ -864,6 +863,9 @@ export function lowerIdentifierExpr(lowerer: Lowerer, expr: ts.Identifier, loc: 
   if (lowerer.isStdlibGlobal(expr, "crypto"))
     return { kind: "libCall", fn: "webcrypto.object", args: [], type: DYN, loc };
   if (isNavigatorGlobal(lowerer, expr)) return navigatorValue(loc);
+  if (lowerer.isStdlibGlobal(expr, "localStorage")) return localStorageValue(lowerer, loc);
+  if (lowerer.isStdlibGlobal(expr, "sessionStorage"))
+    return { kind: "libCall", fn: "global.sessionStorage", args: [], type: DYN, loc };
   const nativeAlias = stdlibGlobalNameOf(lowerer, expr);
   if (nativeAlias === "Buffer" && expr.text !== "Buffer") {
     // An alias through a cast of globalThis carries the cast's static type,
@@ -877,10 +879,7 @@ export function lowerIdentifierExpr(lowerer: Lowerer, expr: ts.Identifier, loc: 
         "test it in a condition, read its typeof, or call its members",
       );
     }
-    // JavaScript reads the Buffer function's value (builtinGlobalValue).
-    if (isJsSourceFile(ts.getSourceFileOfNode(expr)))
-      return { kind: "libCall", fn: "buffer.constructor", args: [], type: DYN, loc };
-    return { kind: "strLit", value: "[builtin Buffer]", type: STRING, loc };
+    return { kind: "libCall", fn: "buffer.constructor", args: [], type: DYN, loc };
   }
   if (lowerer.isStdlibGlobal(expr, "fetch")) {
     return { kind: "libCall", fn: "fetch.function", args: [], type: DYN, loc };
@@ -907,13 +906,6 @@ export function lowerIdentifierExpr(lowerer: Lowerer, expr: ts.Identifier, loc: 
   }
   {
     const sym = identifierReadSymbol(lowerer, expr);
-    // The temporal global is typed (TS 7's lib slice) but Node 24 does
-    // not define it: the read throws Node's ReferenceError.
-    if (isTemporalGlobalRoot(lowerer, expr, sym)) {
-      const t =
-        ambientUndefReadType(lowerer, expr) ?? contextualUndefReadType(lowerer, expr) ?? F64;
-      return nsUndefRead(lowerer, expr.text, expr, t);
-    }
     if (lowerer.isStdlibSymbol(sym) || expr.text === "globalThis") {
       const canonical = stdlibGlobalNameOf(lowerer, expr) ?? expr.text;
       // %Iterator% in JavaScript: the live constructor (scr_js_iterator.c).

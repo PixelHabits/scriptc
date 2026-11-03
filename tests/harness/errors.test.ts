@@ -938,7 +938,7 @@ try {
 });
 
 // getCipherInfo's result is Node's info object; CipherInfo declares nid as
-// required, and Node reports the SIV ciphers without one.
+// required, and Node reports the SIV ciphers' nid as undefined.
 describe("getCipherInfo through CipherInfo", () => {
   test("a typed read of a missing nid throws a TypeError", async () => {
     const r = await compileAndRun(
@@ -957,7 +957,7 @@ try {
     );
     expect(r.exitCode).toBe(0);
     expect(r.stdout).toBe(
-      '{"mode":"siv","name":"aes-128-siv","blockSize":1,"keyLength":32} 895\n' +
+      '{"mode":"siv","name":"aes-128-siv","keyLength":32,"blockSize":1} 895\n' +
         "TypeError expected number at $, got undefined\n",
     );
     expect(r.stderr).toBe("");
@@ -1301,9 +1301,10 @@ try {
 
 // getCipherInfo reads keyLength and ivLength through getters, which a
 // class instance's accessors are not visible to from the runtime, so a
-// class that defines either throws a coded SC2020 error.
+// class that defines either throws a coded SC2020 error. Node reads the
+// options before it looks at nameOrNid.
 describe("getCipherInfo options whose class defines keyLength or ivLength", () => {
-  test("throw SC2020 after the argument checks", async () => {
+  test("throw SC2020 before nameOrNid is checked", async () => {
     const r = await compileAndRun(
       "cipher-info-class-options",
       `import { getCipherInfo } from "node:crypto";
@@ -1313,7 +1314,7 @@ class Options {
   }
 }
 const options: any = new Options();
-const names: any[] = ["aes-128-cbc", 1.5];
+const names: any[] = ["aes-128-cbc", true];
 for (const name of names) {
   try {
     getCipherInfo(name, options);
@@ -1326,9 +1327,10 @@ for (const name of names) {
     );
     expect(r.exitCode).toBe(0);
     expect(r.stdout).toBe(
-      "Error SC2020 getCipherInfo options whose class defines keyLength or ivLength have no lowering; " +
-        "pass an object with those properties\n" +
-        'RangeError ERR_OUT_OF_RANGE The value of "nameOrNid" is out of range. It must be an integer. Received 1.5\n',
+      (
+        "Error SC2020 getCipherInfo options whose class defines keyLength or ivLength have no lowering; " +
+        "pass an object with those properties\n"
+      ).repeat(2),
     );
     expect(r.stderr).toBe("");
   });
@@ -2434,7 +2436,7 @@ console.log(util.format(s, { a: 1 }), util.formatWithOptions({ maxArrayLength: 1
 // internal slots, which have no lowering; past the depth limit it prints
 // the class placeholder.
 describe("TextDecoder and TextEncoder with customInspect: false", () => {
-  test("refuse within the depth limit and print [cls] past it", async () => {
+  test("refuse within the depth limit and inspect codecs past it", async () => {
     const r = await compileAndRun(
       "codec-custom-inspect-false",
       `import * as util from "node:util";
@@ -2464,7 +2466,7 @@ console.log(util.inspect(decoder, { customInspect: true }));
       "util.inspect of a TextDecoder with customInspect: false is not supported yet\n" +
         "util.inspect of a TextEncoder with customInspect: false is not supported yet\n" +
         "util.inspect of a TextDecoder with customInspect: false is not supported yet\n" +
-        "{ a: { b: { c: [TextDecoder], d: [TextEncoder] } } }\n" +
+        "{ a: { b: { c: [TextDecoder], d: TextEncoder {} } } }\n" +
         "TextDecoder { encoding: 'utf-8', fatal: false, ignoreBOM: false }\n",
     );
     expect(r.stderr).toBe("");

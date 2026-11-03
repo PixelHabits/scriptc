@@ -5,7 +5,7 @@
  * signatures are IEEE P1363 r || s.
  *
  * Argument conversion, algorithm normalization and the DOMException
- * shapes follow Node 24's lib/internal/crypto/webcrypto.js, ec.js and
+ * shapes follow Node's lib/internal/crypto/webcrypto.js, ec.js and
  * rsa.js, through the Web IDL helpers of scr_webcrypto.c. The keys and
  * signatures come from the pki unit (scr_pki.c). This unit installs
  * itself into scr_webcrypto.c's dispatch table at startup; the compiler
@@ -207,54 +207,31 @@ static ScrDyn *sw_required(ScrDyn *plain, const char *dict, const char *member) 
   return v;
 }
 
-/* namedCurve (DOMString, required): one of the implemented curves, or
- * NULL with the error pending. */
-static const char *sw_named_curve(ScrDyn *plain, const char *dict) {
+/* namedCurve (DOMString, required) converted (+1), or NULL with the
+ * error pending. */
+static ScrStr *sw_named_curve(ScrDyn *plain, const char *dict) {
   ScrDyn *value = sw_required(plain, dict, "namedCurve");
   if (!value) return NULL;
   ScrStr *s = scr_wc_dom_string(value);
   scr_dyn_release(value);
-  if (!s) return NULL;
-  const char *curve = NULL;
-  for (size_t i = 0; i < SCR_WC_COUNT(sw_curves); i++)
-    if (s->len == strlen(sw_curves[i]) && memcmp(s->data, sw_curves[i], s->len) == 0) curve = sw_curves[i];
-  scr_str_release(s);
-  if (!curve) scr_throw_domex("NotSupportedError", "Unrecognized namedCurve");
-  return curve;
+  return s;
 }
 
-/* hash (HashAlgorithmIdentifier, required): with `sha_only`, Node's
- * ensureSHA check first ("Only SHA hashes are supported in <dict>"). */
-static const char *sw_hash(ScrDyn *plain, const char *dict, bool sha_only, const char *method) {
-  ScrDyn *hash = sw_required(plain, dict, "hash");
+/* namedCurveValidator over the implemented curves: the curve, or NULL with
+ * the error pending. */
+static const char *sw_curve(const ScrStr *name) {
+  for (size_t i = 0; i < SCR_WC_COUNT(sw_curves); i++)
+    if (name->len == strlen(sw_curves[i]) && memcmp(name->data, sw_curves[i], name->len) == 0) return sw_curves[i];
+  scr_throw_domex("NotSupportedError", "Unrecognized namedCurve");
+  return NULL;
+}
+
+/* A dictionary whose only member is the required hash: converted, then
+ * normalized. */
+static const char *sw_hash(ScrDyn *plain, const char *dict, const char *method) {
+  ScrDyn *hash = scr_wc_hash_convert(plain, dict);
   if (!hash) return NULL;
-  if (sha_only) {
-    ScrStr *name = NULL;
-    if (scr_wc_is_object(hash)) {
-      ScrDyn *hp = scr_wc_plain(hash);
-      ScrDyn *member = hp ? scr_wc_member(hp, "name") : NULL;
-      if (hp) scr_dyn_release(hp);
-      if (member && member->kind == SCR_DYN_STR) name = scr_str_retain(member->v.str);
-      if (member) scr_dyn_release(member);
-    } else {
-      name = scr_wc_dom_string(hash);
-      if (!name) {
-        scr_dyn_release(hash);
-        return NULL;
-      }
-    }
-    bool sha = name && name->len >= 3 && (name->data[0] | 32) == 's' && (name->data[1] | 32) == 'h' &&
-               (name->data[2] | 32) == 'a';
-    if (name) scr_str_release(name);
-    if (!sha) {
-      char message[96];
-      snprintf(message, sizeof message, "Only SHA hashes are supported in %s", dict);
-      scr_throw_domex("NotSupportedError", message);
-      scr_dyn_release(hash);
-      return NULL;
-    }
-  }
-  const char *canonical = scr_wc_digest_algorithm(hash, method);
+  const char *canonical = scr_wc_hash_member(hash, dict, method);
   scr_dyn_release(hash);
   return canonical;
 }
@@ -295,6 +272,8 @@ static ScrPromise *sw_generate_key(const ScrDyn *args) {
   scr_wc_args_take(&a, args, 3);
   ScrDyn *pair = NULL;
   ScrDyn *plain = NULL;
+  ScrStr *curve_name = NULL;
+  ScrBytes *exponent = NULL;
   if (!scr_wc_is_object(a.v[0])) {
     ScrStr *s = scr_wc_dom_string(a.v[0]);
     if (!s) goto done;
@@ -308,10 +287,8 @@ static ScrPromise *sw_generate_key(const ScrDyn *args) {
   SwKind kind = sw_kind_of(name);
   plain = scr_wc_plain(a.v[0]);
   if (!plain) goto done;
-  const char *curve = NULL;
   const char *hash = NULL;
   double bits = 0;
-  ScrBytes *exponent = NULL;
   if (kind == SW_ED25519) {
     /* no parameters */
   } else if (kind == SW_ECDSA) {
@@ -319,8 +296,8 @@ static ScrPromise *sw_generate_key(const ScrDyn *args) {
       scr_wc_missing_member("EcKeyGenParams", "namedCurve");
       goto done;
     }
-    curve = sw_named_curve(plain, "EcKeyGenParams");
-    if (!curve) goto done;
+    curve_name = sw_named_curve(plain, "EcKeyGenParams");
+    if (!curve_name) goto done;
   } else {
     static const char dict[] = "RsaHashedKeyGenParams";
     if (!scr_wc_is_object(plain)) {
@@ -328,28 +305,26 @@ static ScrPromise *sw_generate_key(const ScrDyn *args) {
       goto done;
     }
     /* Dictionary members convert in name order: hash, modulusLength,
-     * publicExponent. */
-    hash = sw_hash(plain, dict, true, "generateKey");
-    if (!hash) goto done;
+     * publicExponent; then the hash normalizes. */
+    ScrDyn *hash_value = scr_wc_hash_convert(plain, dict);
+    if (!hash_value) goto done;
     ScrDyn *length = sw_required(plain, dict, "modulusLength");
-    if (!length) goto done;
-    bool ok = sw_unsigned_long(length, "modulusLength", &bits);
-    scr_dyn_release(length);
-    if (!ok) goto done;
-    ScrDyn *e = sw_required(plain, dict, "publicExponent");
-    if (!e) goto done;
-    if (e->kind != SCR_DYN_BYTES || e->v.bytes->elem != SCR_BYTES_U8) {
+    bool ok = length && sw_unsigned_long(length, "modulusLength", &bits);
+    if (length) scr_dyn_release(length);
+    ScrDyn *e = ok ? sw_required(plain, dict, "publicExponent") : NULL;
+    if (e && (e->kind != SCR_DYN_BYTES || e->v.bytes->elem != SCR_BYTES_U8)) {
       scr_wc_type_error("ERR_INVALID_ARG_TYPE", "%s: publicExponent in passed algorithm is not instance of Uint8Array.",
                         scr_wc_normalize_prefix);
-      scr_dyn_release(e);
-      goto done;
+    } else if (e) {
+      exponent = scr_bytes_buffer_source(e);
+      hash = scr_wc_hash_member(hash_value, dict, "generateKey");
     }
-    exponent = scr_bytes_buffer_source(e);
-    scr_dyn_release(e);
+    if (e) scr_dyn_release(e);
+    scr_dyn_release(hash_value);
+    if (!hash) goto done;
   }
   if (usages & ~(long)(SCR_WC_USAGE_SIGN | SCR_WC_USAGE_VERIFY)) {
     sw_unsupported_usage(kind);
-    if (exponent) scr_bytes_release(exponent);
     goto done;
   }
   ScrPkiKey *key;
@@ -357,23 +332,28 @@ static ScrPromise *sw_generate_key(const ScrDyn *args) {
     key = scr_pki_generate_ed25519();
     if (!key) goto done;
   } else if (kind == SW_ECDSA) {
+    const char *curve = sw_curve(curve_name);
+    if (!curve) goto done;
     key = scr_pki_generate_ec(curve);
   } else {
-    /* publicExponent: big-endian, at most a 32-bit value. */
-    size_t n = (size_t)scr_bytes_byte_len(exponent);
-    uint64_t value = 0;
-    bool fits = true;
-    for (size_t i = 0; i < n; i++) {
-      if (value > 0xffffffu && fits) fits = false;
-      value = (value << 8) | exponent->data[i];
-    }
-    scr_bytes_release(exponent);
-    if (!fits || value > 0xffffffffu) {
-      scr_throw_domex("OperationError", "The publicExponent must be equivalent to an unsigned 32-bit value");
-      goto done;
-    }
+    /* The RsaKeyGenParams validators: modulusLength, then publicExponent
+     * as bigIntArrayToUnsignedInt reads it (big-endian, nonzero bytes
+     * only in its low four). */
     if (bits < 512) {
       scr_throw_domex("OperationError", "algorithm.modulusLength must be at least 512");
+      goto done;
+    }
+    size_t n = (size_t)scr_bytes_byte_len(exponent);
+    uint32_t value = 0;
+    for (size_t i = 0; i < n; i++) {
+      if (n - i - 1 >= 4 && exponent->data[i]) {
+        scr_throw_domex("OperationError", "algorithm.publicExponent must fit in an unsigned 32-bit integer");
+        goto done;
+      }
+      value = (value << 8) | exponent->data[i];
+    }
+    if (value < 3) {
+      scr_throw_domex("OperationError", "algorithm.publicExponent must be at least 3");
       goto done;
     }
     if ((value & 1) == 0) {
@@ -381,8 +361,8 @@ static ScrPromise *sw_generate_key(const ScrDyn *args) {
       goto done;
     }
     /* The pki unit's numbers hold moduli up to 8192 bits. */
-    if (bits > 8192 || value < 3) {
-      scr_wc_unsupported("generateKey", "this RSA modulus length or public exponent");
+    if (bits > 8192) {
+      scr_wc_unsupported("generateKey", "this RSA modulus length");
       goto done;
     }
     key = scr_pki_generate_rsa((unsigned)bits, value);
@@ -408,6 +388,8 @@ static ScrPromise *sw_generate_key(const ScrDyn *args) {
   scr_dyn_obj_set(pair, "publicKey", 9, sw_key_new(public_key, kind, hash, public_usages, true));
   scr_dyn_obj_set(pair, "privateKey", 10, sw_key_new(key, kind, hash, private_usages, extractable));
 done:
+  if (exponent) scr_bytes_release(exponent);
+  if (curve_name) scr_str_release(curve_name);
   if (plain) scr_dyn_release(plain);
   scr_wc_args_drop(&a, 3);
   if (!pair) return scr_wc_rejected();
@@ -429,42 +411,6 @@ static bool sw_jwk_is(const ScrDyn *v, const char *text) {
          memcmp(v->v.str->data, text, v->v.str->len) == 0;
 }
 
-/* The JWK checks Node runs before reading the key: use, key_ops and ext. */
-static bool sw_jwk_checks(const ScrDyn *jwk, unsigned usages, bool extractable) {
-  const ScrDyn *use = sw_jwk_member(jwk, "use");
-  if (use && !sw_jwk_is(use, "sig")) {
-    scr_throw_domex("DataError", "Invalid JWK \"use\" Parameter");
-    return false;
-  }
-  const ScrDyn *ops = sw_jwk_member(jwk, "key_ops");
-  if (ops) {
-    if (ops->kind != SCR_DYN_ARR) {
-      scr_throw_domex("DataError", "Key operations and usage mismatch");
-      return false;
-    }
-    for (size_t u = 0; u < SCR_WC_COUNT(scr_wc_usages); u++) {
-      if (!(usages & (1u << u))) continue;
-      bool listed = false;
-      double n = scr_dyn_arr_len(ops);
-      for (double i = 0; i < n && !listed; i++) {
-        ScrDyn *item = scr_dyn_arr_at(ops, i);
-        listed = sw_jwk_is(item, scr_wc_usages[u]);
-        scr_dyn_release(item);
-      }
-      if (!listed) {
-        scr_throw_domex("DataError", "Key operations and usage mismatch");
-        return false;
-      }
-    }
-  }
-  const ScrDyn *ext = sw_jwk_member(jwk, "ext");
-  if (ext && ext->kind == SCR_DYN_BOOL && !ext->v.b && extractable) {
-    scr_throw_domex("DataError", "JWK \"ext\" Parameter and extractable mismatch");
-    return false;
-  }
-  return true;
-}
-
 /* The JWK "alg" an RSA key with this hash carries ("RS256", "PS384"). */
 static void sw_rsa_jwk_alg(SwKind kind, const char *hash, char out[8]) {
   const char *bits = strcmp(hash, "SHA-1") == 0 ? "1" : hash + 4;
@@ -478,22 +424,14 @@ static ScrDyn *sw_import(const ScrDyn *args) {
   scr_wc_args_take(&a, args, 5);
   ScrDyn *result = NULL;
   ScrBytes *data = NULL;
-  ScrDyn *jwk = NULL;
+  ScrWcJwk key_data;
+  memset(&key_data, 0, sizeof key_data);
   ScrDyn *plain = NULL;
+  ScrStr *curve_name = NULL;
   const char *format = scr_wc_key_format(prefix, a.v[0]);
-  if (!format) goto done;
+  if (!format || !scr_wc_key_data(prefix, a.v[1], &data, &key_data)) goto done;
   bool is_jwk = strcmp(format, "jwk") == 0;
-  if (is_jwk) {
-    if (!scr_wc_is_object(a.v[1])) {
-      scr_wc_type_error("ERR_INVALID_ARG_TYPE", "%s: 2nd argument is not of type JsonWebKey.", prefix);
-      goto done;
-    }
-    jwk = scr_wc_plain(a.v[1]);
-    if (!jwk) goto done;
-  } else {
-    data = scr_wc_buffer_source(prefix, 1, a.v[1]);
-    if (!data) goto done;
-  }
+  const ScrDyn *jwk = key_data.dict;
   if (!scr_wc_is_object(a.v[2])) {
     ScrStr *s = scr_wc_dom_string(a.v[2]);
     if (!s) goto done;
@@ -516,16 +454,18 @@ static ScrDyn *sw_import(const ScrDyn *args) {
       scr_wc_missing_member("EcKeyImportParams", "namedCurve");
       goto done;
     }
-    curve = sw_named_curve(plain, "EcKeyImportParams");
-    if (!curve) goto done;
+    curve_name = sw_named_curve(plain, "EcKeyImportParams");
+    if (!curve_name) goto done;
   } else {
     if (!scr_wc_is_object(plain)) {
       scr_wc_missing_member("RsaHashedImportParams", "hash");
       goto done;
     }
-    hash = sw_hash(plain, "RsaHashedImportParams", true, "importKey");
+    hash = sw_hash(plain, "RsaHashedImportParams", "importKey");
     if (!hash) goto done;
   }
+  if (!scr_wc_key_data_matches(format, a.v[1], &key_data)) goto done;
+  if (curve_name && !(curve = sw_curve(curve_name))) goto done;
   bool private_key;
   if (is_jwk) {
     private_key = sw_jwk_member(jwk, "d") != NULL;
@@ -545,15 +485,13 @@ static ScrDyn *sw_import(const ScrDyn *args) {
   /* An Ed25519 private key derives its public key in the Ed25519 unit. */
   if (kind == SW_ED25519 && private_key && !scr_pki_ed25519_ready()) goto done;
   if (is_jwk) {
-    const ScrDyn *kty = sw_jwk_member(jwk, "kty");
-    if (!kty) {
-      scr_throw_domex("DataError", "Invalid keyData");
+    /* The key type's import: usages, validateJwk, then crv and alg. */
+    if ((unsigned)usages & ~allowed) {
+      sw_unsupported_usage(kind);
       goto done;
     }
-    if (!sw_jwk_is(kty, kind == SW_ECDSA ? "EC" : kind == SW_ED25519 ? "OKP" : "RSA")) {
-      scr_throw_domex("DataError", "Invalid JWK \"kty\" Parameter");
-      goto done;
-    }
+    const char *kty = kind == SW_ECDSA ? "EC" : kind == SW_ED25519 ? "OKP" : "RSA";
+    if (!scr_wc_validate_jwk(&key_data, kty, extractable, usages, "sig")) goto done;
     if (kind == SW_ECDSA && !sw_jwk_is(sw_jwk_member(jwk, "crv"), curve)) {
       scr_throw_domex("DataError", "JWK \"crv\" does not match the requested algorithm");
       goto done;
@@ -562,12 +500,17 @@ static ScrDyn *sw_import(const ScrDyn *args) {
       scr_throw_domex("DataError", "JWK \"crv\" Parameter and algorithm name mismatch");
       goto done;
     }
-    if ((unsigned)usages & ~allowed) {
-      sw_unsupported_usage(kind);
-      goto done;
-    }
-    if (!sw_jwk_checks(jwk, (unsigned)usages, extractable)) goto done;
     const ScrDyn *alg = sw_jwk_member(jwk, "alg");
+    if (kind == SW_ECDSA && alg) {
+      const char *alg_curve = sw_jwk_is(alg, "ES256")   ? "P-256"
+                              : sw_jwk_is(alg, "ES384") ? "P-384"
+                              : sw_jwk_is(alg, "ES512") ? "P-521"
+                                                        : NULL;
+      if (!alg_curve || strcmp(alg_curve, curve) != 0) {
+        scr_throw_domex("DataError", "JWK \"alg\" does not match the requested algorithm");
+        goto done;
+      }
+    }
     if (kind == SW_ED25519 && alg && !sw_jwk_is(alg, "Ed25519") && !sw_jwk_is(alg, "EdDSA")) {
       scr_throw_domex("DataError", "JWK \"alg\" does not match the requested algorithm");
       goto done;
@@ -619,8 +562,9 @@ static ScrDyn *sw_import(const ScrDyn *args) {
   result = sw_key_new(key, kind, hash, (unsigned)usages, extractable);
 done:
   if (data) scr_bytes_release(data);
-  if (jwk) scr_dyn_release(jwk);
+  scr_wc_jwk_drop(&key_data);
   if (plain) scr_dyn_release(plain);
+  if (curve_name) scr_str_release(curve_name);
   scr_wc_args_drop(&a, 5);
   return result;
 }
@@ -663,8 +607,11 @@ static ScrDyn *sw_export(const ScrDyn *args) {
       goto done;
     }
     result = sw_array_buffer(der);
-  } else if (strcmp(format, "raw") == 0 && (k->kind == SW_ECDSA || k->kind == SW_ED25519) &&
-             !private_key) {
+  } else if (strcmp(format, "raw") == 0 && (k->kind == SW_ECDSA || k->kind == SW_ED25519)) {
+    if (private_key) {
+      scr_throw_domex("InvalidAccessError", "Key must be a public key");
+      goto done;
+    }
     ScrBytes *point = k->kind == SW_ED25519 ? scr_pki_export_ed25519_raw(k->key) : scr_pki_export_point(k->key);
     if (!point) {
       scr_throw_domex("OperationError", "Failed to export key");
@@ -768,7 +715,7 @@ static ScrPromise *sw_sign_verify(const ScrDyn *args, bool verify) {
       scr_wc_missing_member("EcdsaParams", "hash");
       goto done;
     }
-    hash = sw_hash(plain, "EcdsaParams", false, method);
+    hash = sw_hash(plain, "EcdsaParams", method);
     if (!hash) goto done;
   } else if (kind == SW_PSS) {
     if (!scr_wc_is_object(plain)) {

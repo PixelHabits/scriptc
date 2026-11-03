@@ -3,15 +3,15 @@
  * never resolves one by hand:
  *
  *   packages/compiler/surface-manifest.json          pnpm manifest
- *   internal/compatibility/generated/node-v24-internal.json
- *   docs/src/generated/node-v24-compatibility.json   pnpm node-compat --local
+ *   internal/compatibility/generated/node-v26-internal.json
+ *   docs/src/generated/node-v26-compatibility.json   pnpm node-compat --local
  *
  * During a merge, rebase or cherry-pick, resolve the conflicts in source
  * files first. Each generated file git still reports as conflicted is then
  * written from one side of the conflict, every file is regenerated from the
  * merged sources, and only then are the conflicted ones staged: when a
  * generator fails they stay unmerged. The side is the one whose ledger is
- * for the merged Node pin (node-v24.json), which offline regeneration
+ * for the merged Node pin (node-v26.json), which offline regeneration
  * needs; when neither is, run `pnpm node-compat`, which fetches the pinned
  * Node docs, instead.
  *
@@ -25,8 +25,8 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const GENERATED = [
   "packages/compiler/surface-manifest.json",
-  "internal/compatibility/generated/node-v24-internal.json",
-  "docs/src/generated/node-v24-compatibility.json",
+  "internal/compatibility/generated/node-v26-internal.json",
+  "docs/src/generated/node-v26-compatibility.json",
 ];
 
 function run(command, args) {
@@ -40,7 +40,7 @@ function run(command, args) {
 }
 
 const git = (...args) => run("git", args);
-const LEDGER = "internal/compatibility/generated/node-v24-internal.json";
+const LEDGER = "internal/compatibility/generated/node-v26-internal.json";
 
 /** A conflicted file's content on one side: index stage 2 (ours) or 3 (theirs), or null if absent there. */
 function side(stage, path) {
@@ -51,7 +51,7 @@ function side(stage, path) {
 /** The side (2 or 3) to take the conflicted files from: the one whose ledger is for the merged pin. */
 function chooseSide(conflicted) {
   if (!conflicted.includes(LEDGER)) return 2;
-  const pin = JSON.parse(readFileSync(join(root, "internal/compatibility/node-v24.json"), "utf8"));
+  const pin = JSON.parse(readFileSync(join(root, "internal/compatibility/node-v26.json"), "utf8"));
   const forPin = (stage) => {
     const text = side(stage, LEDGER);
     if (text === null) return false;

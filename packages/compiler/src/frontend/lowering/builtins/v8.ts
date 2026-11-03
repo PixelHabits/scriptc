@@ -27,6 +27,7 @@ const HEAP_STATISTICS_FIELDS = [
   "total_global_handles_size",
   "used_global_handles_size",
   "external_memory",
+  "total_allocated_bytes",
 ];
 
 /** `v8.getHeapStatistics()`: one memoryUsage sample (the runtime heap's

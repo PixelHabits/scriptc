@@ -115,7 +115,8 @@ const BYTES_METHOD_STORES: ReadonlySet<IrBytesIntrinsicMethod> = new Set([
 function runsCode(e: IrExpr): boolean {
   if (CALLS.has(e.kind)) return true;
   if (e.kind === "bytesIntrinsic") return e.method === "sortCompare";
-  if (e.kind === "arrIntrinsic") return e.method === "sortValues" || e.method === "sortDense";
+  if (e.kind === "arrIntrinsic")
+    return e.method === "sortValues" || e.method === "sortValuesCopy" || e.method === "sortDense";
   return false;
 }
 

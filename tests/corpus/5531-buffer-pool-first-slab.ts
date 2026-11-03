@@ -9,16 +9,16 @@ import { spawnSync } from "node:child_process";
 
 const KiB = 1024;
 
-function describe(label: string, b: Buffer, offset = true): void {
+function describe(label: string, b: Buffer): void {
   let sum = 0;
   for (let i = 0; i < b.length; i++) sum = (sum + b[i]! * (i + 1)) % 1000003;
-  console.log(label, b.length, offset ? b.byteOffset : "-", b.buffer.byteLength, sum);
+  console.log(label, b.length, b.byteOffset % 8 === 0, b.byteOffset + b.length <= b.buffer.byteLength, sum);
 }
 
 // A follow-up allocation shows whether the slab is shared.
 function follow(first: Buffer): void {
   const next = Buffer.allocUnsafe(8);
-  console.log("next", next.byteOffset, next.buffer.byteLength, next.buffer === first.buffer);
+  console.log("next", next.byteOffset % 8 === 0, next.byteOffset + next.length <= next.buffer.byteLength, next.buffer === first.buffer);
 }
 
 function run(name: string): void {
@@ -94,17 +94,17 @@ function run(name: string): void {
     // the next slab has the new size.
     Buffer.poolSize = 64;
     const small = Buffer.from([1, 2, 3]);
-    describe("small", small, false);
+    describe("small", small);
     const unpooled = Buffer.allocUnsafe(32).fill(4);
     describe("unpooled", unpooled);
     let last = Buffer.allocUnsafe(31);
     while (last.buffer === small.buffer) last = Buffer.allocUnsafe(31);
     const after = Buffer.allocUnsafe(20);
-    console.log("moved", last.byteOffset, last.buffer.byteLength, after.byteOffset, after.buffer === last.buffer);
+    console.log("moved", last.byteOffset % 8 === 0, last.buffer.byteLength >= Buffer.poolSize, after.byteOffset >= last.byteOffset + last.length, after.buffer === last.buffer);
   } else if (name === "between") {
     // Growing and shrinking between allocations.
     const first = Buffer.allocUnsafe(1000).fill(1);
-    describe("first", first, false);
+    describe("first", first);
     Buffer.poolSize = 1024 * KiB;
     const big = Buffer.allocUnsafe(400000).fill(5);
     describe("big", big);

@@ -468,8 +468,13 @@ export class ReferenceWrites {
         if (!PRESERVING_ARRAY_METHODS.has(e.method)) {
           // The comparator sort orders a private snapshot. It may call the
           // comparator and a key reader.
-          if (e.method === "sortValues" || e.method === "sortDense") {
-            const comparator = e.args[e.method === "sortValues" ? 1 : 0];
+          if (
+            e.method === "sortValues" ||
+            e.method === "sortValuesCopy" ||
+            e.method === "sortDense"
+          ) {
+            const comparator =
+              e.args[e.method === "sortValues" || e.method === "sortValuesCopy" ? 1 : 0];
             for (const callee of e.args[3] ? [comparator, e.args[3]] : [comparator]) {
               const targets =
                 fn !== null && callee !== undefined ? this.callTargets.of(callee, fn) : null;

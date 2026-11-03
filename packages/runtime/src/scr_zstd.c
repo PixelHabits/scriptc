@@ -1,5 +1,5 @@
 /* node:zlib's zstd codec over the vendored zstd 1.5.7 (the version Node
- * v24.22.1 bundles, so compressed bytes match Node's). Node's
+ * v26.13.0 bundles, so compressed bytes match Node's). Node's
  * ZstdCompressContext and ZstdDecompressContext (src/node_zlib.cc) plug into
  * scr_zlib.c's engine as a codec, so the one-shot, callback, promise and
  * stream forms run exactly as their zlib counterparts do. The option ladder
@@ -467,6 +467,13 @@ static int scr_zstd_param_max(int mode) {
   return mode == SCR_ZSTD_COMPRESS ? (int)ZSTD_c_overlapLog : (int)ZSTD_d_windowLogMax;
 }
 
+static void scr_zstd_source_size(void *state, size_t size) {
+  ScrZstd *z = state;
+  z->pledged_src_size = size;
+  ZSTD_CCtx_setPledgedSrcSize(z->cctx, size);
+  z->have_consumed = true;
+}
+
 static bool scr_zstd_options_object(int mode, const ScrDyn *opts, ScrZlibOptions *out) {
   memset(out, 0, sizeof *out);
   out->chunk_size = 16384;
@@ -516,6 +523,7 @@ static bool scr_zstd_options_object(int mode, const ScrDyn *opts, ScrZlibOptions
   }
   out->codec_state = z;
   out->codec_state_free = scr_zstd_free;
+  if (z->compress && pledged == ZSTD_CONTENTSIZE_UNKNOWN) out->set_source_size = scr_zstd_source_size;
   /* ZlibBase's `if (opts)`: a falsy value reads no more options. */
   if (opts == NULL || !scr_dyn_truthy(opts)) return true;
   return scr_zlib_base_options(opts, SCR_ZSTD_FLUSH_MAX, out);

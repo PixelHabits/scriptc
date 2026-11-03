@@ -19,6 +19,11 @@ ScrStr *scr_crypto_hash_digest_str(ScrStr *alg, ScrStr *data, ScrStr *enc);
 ScrStr *scr_crypto_hash_digest_bytes(ScrStr *alg, ScrBytes *data, ScrStr *enc);
 typedef struct ScrCryptoHash ScrCryptoHash;
 ScrCryptoHash *scr_crypto_hash_new(ScrStr *alg);
+/* Reports DEP0198 for a SHAKE digest created without outputLength. The
+ * dyn-async unit installs it (scr_crypto_hash_shake_warnings) in programs
+ * whose digest names can be SHAKE128 or SHAKE256; NULL otherwise. */
+extern void (*scr_crypto_dep0198)(void);
+void scr_crypto_hash_shake_warnings(void);
 ScrDyn *scr_crypto_native(void);
 /* The crypto global as a value: scr_crypto_native's object with the Crypto
  * methods (scr_webcrypto_object.c, linked with the webcrypto feature). */
@@ -39,7 +44,7 @@ ScrCryptoHash *scr_crypto_hash_copy(ScrCryptoHash *h);
 ScrStr *scr_crypto_hash_digest_string(ScrCryptoHash *h, ScrStr *enc);
 ScrBytes *scr_crypto_hash_digest_buffer(ScrCryptoHash *h);
 /* The option and any-value forms of createHash, copy, update, digest and
- * crypto.hash, with Node 24.22's validation and errors. */
+ * crypto.hash, with Node's validation and errors. */
 ScrCryptoHash *scr_crypto_hash_new_opts(ScrStr *alg, ScrDyn *options);
 ScrCryptoHash *scr_crypto_hash_copy_opts(ScrCryptoHash *h, ScrDyn *options);
 ScrCryptoHash *scr_crypto_hmac_new_dyn(ScrStr *alg, ScrDyn *key, ScrDyn *options);
@@ -122,9 +127,10 @@ void scr_crypto_generate_prime_async(ScrDyn *size, ScrDyn *options, ScrDyn *call
 ScrBytes *scr_crypto_pbkdf2(ScrBytes *password, ScrBytes *salt,
                             double iterations, double keylen, ScrStr *digest);
 ScrBytes *scr_crypto_pbkdf2_job(ScrBytes *password, ScrBytes *salt, double iterations,
-                                double keylen, ScrStr *digest, const char **failure);
+                                double keylen, ScrStr *digest, ScrError **failure);
 ScrBytes *scr_crypto_hkdf_bytes(ScrStr *digest, ScrBytes *ikm, ScrBytes *salt,
                                 ScrBytes *info, double keylen);
+ScrError *scr_crypto_hkdf_failure(void);
 ScrDyn *scr_crypto_hkdf(ScrStr *digest, ScrBytes *ikm, ScrBytes *salt,
                        ScrBytes *info, double keylen);
 ScrBytes *scr_crypto_scrypt(ScrBytes *password, ScrBytes *salt, double keylen, ScrDyn *options);

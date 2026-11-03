@@ -29,7 +29,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/mdx": "^2",
     "@types/mdast": "^4",
-    "@types/node": "^22",
+    "@types/node": "^26.6.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",

@@ -32,7 +32,10 @@ static SfwCtx *sfw_ref(SfwCtx *c) {
 static void sfw_unref(SfwCtx *c) {
   if (--c->rc > 0) return;
   if (c->readable) scr_stream_release(c->readable);
-  if (c->reader) scr_dyn_release(c->reader);
+  if (c->reader) {
+    scr_fetch_reader_discard_reads(c->reader, c);
+    scr_dyn_release(c->reader);
+  }
   if (c->pending) scr_dyn_release(c->pending);
   free(c);
 }
@@ -90,22 +93,22 @@ static void sfw_forward(ScrClosure *job) {
 }
 
 static void sfw_sink_chunk(void *ctx, ScrDyn *value) {
-  SfwCtx *c = ctx;
+  SfwCtx *c = sfw_ref(ctx);
   if (c->pending) scr_dyn_release(c->pending);
   c->pending = scr_dyn_retain(value);
   scr_queue_microtask(sfw_closure((void *)&sfw_forward, c));
-  sfw_unref(c); /* the request's reference */
+  sfw_unref(c);
 }
 
 static void sfw_sink_close(void *ctx) {
-  SfwCtx *c = ctx;
+  SfwCtx *c = sfw_ref(ctx);
   if (c->readable) scr_stream_push_null(c->readable);
   if (scr_exc_pending()) scr_exc_clear();
   sfw_unref(c);
 }
 
 static void sfw_sink_error(void *ctx, ScrDyn *reason) {
-  SfwCtx *c = ctx;
+  SfwCtx *c = sfw_ref(ctx);
   sfw_destroyer(c, reason);
   sfw_unref(c);
 }
@@ -118,8 +121,7 @@ static void sfw_read_inv(ScrClosure *cb, ScrStream *s, double size) {
   (void)size;
   SfwCtx *c = sfw_of(cb);
   if (c->reader) {
-    if (!scr_fetch_reader_read_into(c->reader, &sfw_sink, sfw_ref(c))) {
-      sfw_unref(c);
+    if (!scr_fetch_reader_read_into(c->reader, &sfw_sink, c)) {
       if (scr_exc_pending()) scr_exc_clear();
     }
   }

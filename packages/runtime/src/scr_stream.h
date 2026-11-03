@@ -69,7 +69,7 @@ typedef void (*ScrStreamErrInv)(ScrClosure *cb, ScrStream *s, ScrError *err);
 typedef void (*ScrStreamWritevInv)(ScrClosure *cb, ScrStream *s, struct ScrDyn *chunks);
 
 /* Constructors (+1 result; option callbacks MOVE; NULL = absent). hwm < 0
- * means the byte default (65536 — Node 24's getDefaultHighWaterMark). */
+ * means the byte default (65536, getDefaultHighWaterMark). */
 ScrStream *scr_stream_new_readable(double hwm, bool auto_destroy, bool emit_close,
     ScrClosure *read, ScrStreamReadInv read_inv,
     ScrClosure *destroy, ScrStreamErrInv destroy_inv);
@@ -306,10 +306,10 @@ ScrDyn *scr_stream_read_dyn(ScrStream *s, ScrDyn *size); /* +1 or NULL; size < 0
  * units. Borrows the canonical encoding name; receiver +1. */
 ScrStream *scr_stream_set_encoding(ScrStream *s, ScrStr *enc);
 typedef struct ScrPromise ScrPromise; /* full declaration below (C11 repeat) */
-/* for-await: a +1 promise of the next chunk — buffered content (one
- * whole entry in Readable.from mode, the whole buffer otherwise —
- * Node's iterator read()), the EOF sentinel (an empty Buffer / dyn
- * undefined), or a rejection with the stream's error. The _dyn twin
+/* for-await: a +1 promise of the next chunk: one buffered entry in byte
+ * or object mode, the whole buffer when decoded and paused, the EOF
+ * sentinel (an empty Buffer / dyn undefined), or a rejection with the
+ * stream's error. The _dyn twin
  * boxes by runtime tag (the JS lane; encoded chunks arrive as dyn
  * strings); the typed form throws on encoded streams (chunks are
  * Buffers in typed code). At most one parked waiter (the loop awaits
@@ -434,6 +434,7 @@ ScrStream *scr_stream_destroy(ScrStream *s, ScrError *err); /* recv +1 */
  * the iterator's internal error consumer suppresses an unhandled crash when
  * no user error listener exists. Receiver +1. */
 ScrStream *scr_stream_iterator_close(ScrStream *s);
+ScrPromise *scr_stream_iterator_return(ScrStream *s);
 /* stream.addAbortSignal(signal, s) and the constructors' signal option
  * (from_option: a falsy signal is ignored). Borrows; answers s +1, or
  * NULL with ERR_INVALID_ARG_TYPE pending. */

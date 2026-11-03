@@ -479,16 +479,16 @@ p	1	http://[x]	{"protocol":"http:","slashes":true,"auth":null,"host":"[x]","port
 p	2	http://[x]	{"protocol":"http:","slashes":true,"auth":null,"host":"[x]","port":null,"hostname":"x","hash":null,"search":null,"query":null,"pathname":"/","path":"/","href":"http://[x]/"}
 p	3	http://[x]	{"protocol":"http:","slashes":true,"auth":null,"host":"[x]","port":null,"hostname":"x","hash":null,"search":null,"query":{},"pathname":"/","path":"/","href":"http://[x]/"}
 f	http://[x]	http://[x]/
-p	0	http://[::1	E:ERR_INVALID_URL
-p	1	http://[::1	E:ERR_INVALID_URL
-p	2	http://[::1	E:ERR_INVALID_URL
-p	3	http://[::1	E:ERR_INVALID_URL
-f	http://[::1	E:ERR_INVALID_URL
-p	0	http://[::1]x/	E:ERR_INVALID_URL
-p	1	http://[::1]x/	E:ERR_INVALID_URL
-p	2	http://[::1]x/	E:ERR_INVALID_URL
-p	3	http://[::1]x/	E:ERR_INVALID_URL
-f	http://[::1]x/	E:ERR_INVALID_URL
+p	0	http://[::1	E:ERR_INVALID_ARG_VALUE
+p	1	http://[::1	E:ERR_INVALID_ARG_VALUE
+p	2	http://[::1	E:ERR_INVALID_ARG_VALUE
+p	3	http://[::1	E:ERR_INVALID_ARG_VALUE
+f	http://[::1	E:ERR_INVALID_ARG_VALUE
+p	0	http://[::1]x/	E:ERR_INVALID_ARG_VALUE
+p	1	http://[::1]x/	E:ERR_INVALID_ARG_VALUE
+p	2	http://[::1]x/	E:ERR_INVALID_ARG_VALUE
+p	3	http://[::1]x/	E:ERR_INVALID_ARG_VALUE
+f	http://[::1]x/	E:ERR_INVALID_ARG_VALUE
 p	0	http://user:password@[3ffe:2a00:100:7031::1]:8080	{"protocol":"http:","slashes":true,"auth":"user:password","host":"[3ffe:2a00:100:7031::1]:8080","port":"8080","hostname":"3ffe:2a00:100:7031::1","hash":null,"search":null,"query":null,"pathname":"/","path":"/","href":"http://user:password@[3ffe:2a00:100:7031::1]:8080/"}
 p	1	http://user:password@[3ffe:2a00:100:7031::1]:8080	{"protocol":"http:","slashes":true,"auth":"user:password","host":"[3ffe:2a00:100:7031::1]:8080","port":"8080","hostname":"3ffe:2a00:100:7031::1","hash":null,"search":null,"query":{},"pathname":"/","path":"/","href":"http://user:password@[3ffe:2a00:100:7031::1]:8080/"}
 p	2	http://user:password@[3ffe:2a00:100:7031::1]:8080	{"protocol":"http:","slashes":true,"auth":"user:password","host":"[3ffe:2a00:100:7031::1]:8080","port":"8080","hostname":"3ffe:2a00:100:7031::1","hash":null,"search":null,"query":null,"pathname":"/","path":"/","href":"http://user:password@[3ffe:2a00:100:7031::1]:8080/"}
@@ -629,16 +629,16 @@ p	1	\ufeff\u00a0	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":
 p	2	\ufeff\u00a0	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":null,"path":null,"href":""}
 p	3	\ufeff\u00a0	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":null,"path":null,"href":""}
 f	\ufeff\u00a0	
-p	0	http://a:b:c/	{"protocol":"http:","slashes":true,"auth":null,"host":"a","port":null,"hostname":"a","hash":null,"search":null,"query":null,"pathname":"/:b:c/","path":"/:b:c/","href":"http://a/:b:c/"}
-p	1	http://a:b:c/	{"protocol":"http:","slashes":true,"auth":null,"host":"a","port":null,"hostname":"a","hash":null,"search":null,"query":{},"pathname":"/:b:c/","path":"/:b:c/","href":"http://a/:b:c/"}
-p	2	http://a:b:c/	{"protocol":"http:","slashes":true,"auth":null,"host":"a","port":null,"hostname":"a","hash":null,"search":null,"query":null,"pathname":"/:b:c/","path":"/:b:c/","href":"http://a/:b:c/"}
-p	3	http://a:b:c/	{"protocol":"http:","slashes":true,"auth":null,"host":"a","port":null,"hostname":"a","hash":null,"search":null,"query":{},"pathname":"/:b:c/","path":"/:b:c/","href":"http://a/:b:c/"}
-f	http://a:b:c/	http://a/:b:c/
-p	0	http://a:1:2/	{"protocol":"http:","slashes":true,"auth":null,"host":"a:2","port":"2","hostname":"a","hash":null,"search":null,"query":null,"pathname":"/:1/","path":"/:1/","href":"http://a:2/:1/"}
-p	1	http://a:1:2/	{"protocol":"http:","slashes":true,"auth":null,"host":"a:2","port":"2","hostname":"a","hash":null,"search":null,"query":{},"pathname":"/:1/","path":"/:1/","href":"http://a:2/:1/"}
-p	2	http://a:1:2/	{"protocol":"http:","slashes":true,"auth":null,"host":"a:2","port":"2","hostname":"a","hash":null,"search":null,"query":null,"pathname":"/:1/","path":"/:1/","href":"http://a:2/:1/"}
-p	3	http://a:1:2/	{"protocol":"http:","slashes":true,"auth":null,"host":"a:2","port":"2","hostname":"a","hash":null,"search":null,"query":{},"pathname":"/:1/","path":"/:1/","href":"http://a:2/:1/"}
-f	http://a:1:2/	http://a:2/:1/
+p	0	http://a:b:c/	E:ERR_INVALID_ARG_VALUE
+p	1	http://a:b:c/	E:ERR_INVALID_ARG_VALUE
+p	2	http://a:b:c/	E:ERR_INVALID_ARG_VALUE
+p	3	http://a:b:c/	E:ERR_INVALID_ARG_VALUE
+f	http://a:b:c/	E:ERR_INVALID_ARG_VALUE
+p	0	http://a:1:2/	E:ERR_INVALID_ARG_VALUE
+p	1	http://a:1:2/	E:ERR_INVALID_ARG_VALUE
+p	2	http://a:1:2/	E:ERR_INVALID_ARG_VALUE
+p	3	http://a:1:2/	E:ERR_INVALID_ARG_VALUE
+f	http://a:1:2/	E:ERR_INVALID_ARG_VALUE
 p	0	http://a.com:65536/	{"protocol":"http:","slashes":true,"auth":null,"host":"a.com:65536","port":"65536","hostname":"a.com","hash":null,"search":null,"query":null,"pathname":"/","path":"/","href":"http://a.com:65536/"}
 p	1	http://a.com:65536/	{"protocol":"http:","slashes":true,"auth":null,"host":"a.com:65536","port":"65536","hostname":"a.com","hash":null,"search":null,"query":{},"pathname":"/","path":"/","href":"http://a.com:65536/"}
 p	2	http://a.com:65536/	{"protocol":"http:","slashes":true,"auth":null,"host":"a.com:65536","port":"65536","hostname":"a.com","hash":null,"search":null,"query":null,"pathname":"/","path":"/","href":"http://a.com:65536/"}
@@ -4781,11 +4781,11 @@ p	1	\ufeff[\ufeff`B1.2.3.4ws:..	{"protocol":null,"slashes":null,"auth":null,"hos
 p	2	\ufeff[\ufeff`B1.2.3.4ws:..	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"[\ufeff%60B1.2.3.4ws:..","path":"[\ufeff%60B1.2.3.4ws:..","href":"[\ufeff%60B1.2.3.4ws:.."}
 p	3	\ufeff[\ufeff`B1.2.3.4ws:..	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"[\ufeff%60B1.2.3.4ws:..","path":"[\ufeff%60B1.2.3.4ws:..","href":"[\ufeff%60B1.2.3.4ws:.."}
 f	\ufeff[\ufeff`B1.2.3.4ws:..	[\ufeff%60B1.2.3.4ws:..
-p	0	.file:::1	{"protocol":".file:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":null,"pathname":"/:","path":"/:","href":".file::1/:"}
-p	1	.file:::1	{"protocol":".file:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":{},"pathname":"/:","path":"/:","href":".file::1/:"}
-p	2	.file:::1	{"protocol":".file:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":null,"pathname":"/:","path":"/:","href":".file::1/:"}
-p	3	.file:::1	{"protocol":".file:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":{},"pathname":"/:","path":"/:","href":".file::1/:"}
-f	.file:::1	.file::1/:
+p	0	.file:::1	E:ERR_INVALID_ARG_VALUE
+p	1	.file:::1	E:ERR_INVALID_ARG_VALUE
+p	2	.file:::1	E:ERR_INVALID_ARG_VALUE
+p	3	.file:::1	E:ERR_INVALID_ARG_VALUE
+f	.file:::1	E:ERR_INVALID_ARG_VALUE
 p	0	^|}%C3%A9}|`//	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%5E%7C%7D%C3%A9%7D%7C%60//","path":"%5E%7C%7D%C3%A9%7D%7C%60//","href":"%5E%7C%7D%C3%A9%7D%7C%60//"}
 p	1	^|}%C3%A9}|`//	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%5E%7C%7D%C3%A9%7D%7C%60//","path":"%5E%7C%7D%C3%A9%7D%7C%60//","href":"%5E%7C%7D%C3%A9%7D%7C%60//"}
 p	2	^|}%C3%A9}|`//	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%5E%7C%7D%C3%A9%7D%7C%60//","path":"%5E%7C%7D%C3%A9%7D%7C%60//","href":"%5E%7C%7D%C3%A9%7D%7C%60//"}
@@ -5076,11 +5076,11 @@ p	1	https:c.commailto:\u000afile:	{"protocol":"https:","slashes":null,"auth":nul
 p	2	https:c.commailto:\u000afile:	{"protocol":"https:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"c.commailto:%0Afile:","path":"c.commailto:%0Afile:","href":"https:c.commailto:%0Afile:"}
 p	3	https:c.commailto:\u000afile:	{"protocol":"https:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"c.commailto:%0Afile:","path":"c.commailto:%0Afile:","href":"https:c.commailto:%0Afile:"}
 f	https:c.commailto:\u000afile:	https:c.commailto:%0Afile:
-p	0	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	{"protocol":"c.comjavascript:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":null,"pathname":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","path":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","href":"c.comjavascript:file/:&\u0301\ud83d\udca9mailto:\u05d0x-y"}
-p	1	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	{"protocol":"c.comjavascript:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":{},"pathname":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","path":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","href":"c.comjavascript:file/:&\u0301\ud83d\udca9mailto:\u05d0x-y"}
-p	2	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	{"protocol":"c.comjavascript:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":null,"pathname":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","path":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","href":"c.comjavascript:file/:&\u0301\ud83d\udca9mailto:\u05d0x-y"}
-p	3	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	{"protocol":"c.comjavascript:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":{},"pathname":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","path":"/:&\u0301\ud83d\udca9mailto:\u05d0x-y","href":"c.comjavascript:file/:&\u0301\ud83d\udca9mailto:\u05d0x-y"}
-f	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	c.comjavascript:file/:&\u0301\ud83d\udca9mailto:\u05d0x-y
+p	0	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	E:ERR_INVALID_ARG_VALUE
+p	1	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	E:ERR_INVALID_ARG_VALUE
+p	2	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	E:ERR_INVALID_ARG_VALUE
+p	3	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	E:ERR_INVALID_ARG_VALUE
+f	c.comjavascript:file:&\u0301\ud83d\udca9mailto:\u05d0x-y	E:ERR_INVALID_ARG_VALUE
 p	0	]#1.2.3.4%41[^	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#1.2.3.4%41[%5E","search":null,"query":null,"pathname":"]","path":"]","href":"]#1.2.3.4%41[%5E"}
 p	1	]#1.2.3.4%41[^	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#1.2.3.4%41[%5E","search":null,"query":{},"pathname":"]","path":"]","href":"]#1.2.3.4%41[%5E"}
 p	2	]#1.2.3.4%41[^	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#1.2.3.4%41[%5E","search":null,"query":null,"pathname":"]","path":"]","href":"]#1.2.3.4%41[%5E"}
@@ -5291,11 +5291,11 @@ p	1	=\u06288080\u005c\u0628javascript:ws:	{"protocol":null,"slashes":null,"auth"
 p	2	=\u06288080\u005c\u0628javascript:ws:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"=\u06288080/\u0628javascript:ws:","path":"=\u06288080/\u0628javascript:ws:","href":"=\u06288080/\u0628javascript:ws:"}
 p	3	=\u06288080\u005c\u0628javascript:ws:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"=\u06288080/\u0628javascript:ws:","path":"=\u06288080/\u0628javascript:ws:","href":"=\u06288080/\u0628javascript:ws:"}
 f	=\u06288080\u005c\u0628javascript:ws:	=\u06288080/\u0628javascript:ws:
-p	0	foo:file:\u00a0..%zz\u000a	{"protocol":"foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":null,"pathname":"/:\u00a0..%zz","path":"/:\u00a0..%zz","href":"foo:file/:\u00a0..%zz"}
-p	1	foo:file:\u00a0..%zz\u000a	{"protocol":"foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":{},"pathname":"/:\u00a0..%zz","path":"/:\u00a0..%zz","href":"foo:file/:\u00a0..%zz"}
-p	2	foo:file:\u00a0..%zz\u000a	{"protocol":"foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":null,"pathname":"/:\u00a0..%zz","path":"/:\u00a0..%zz","href":"foo:file/:\u00a0..%zz"}
-p	3	foo:file:\u00a0..%zz\u000a	{"protocol":"foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":{},"pathname":"/:\u00a0..%zz","path":"/:\u00a0..%zz","href":"foo:file/:\u00a0..%zz"}
-f	foo:file:\u00a0..%zz\u000a	foo:file/:\u00a0..%zz
+p	0	foo:file:\u00a0..%zz\u000a	E:ERR_INVALID_ARG_VALUE
+p	1	foo:file:\u00a0..%zz\u000a	E:ERR_INVALID_ARG_VALUE
+p	2	foo:file:\u00a0..%zz\u000a	E:ERR_INVALID_ARG_VALUE
+p	3	foo:file:\u00a0..%zz\u000a	E:ERR_INVALID_ARG_VALUE
+f	foo:file:\u00a0..%zz\u000a	E:ERR_INVALID_ARG_VALUE
 p	0	%41<HTTP:http:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%41%3CHTTP:http:","path":"%41%3CHTTP:http:","href":"%41%3CHTTP:http:"}
 p	1	%41<HTTP:http:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%41%3CHTTP:http:","path":"%41%3CHTTP:http:","href":"%41%3CHTTP:http:"}
 p	2	%41<HTTP:http:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%41%3CHTTP:http:","path":"%41%3CHTTP:http:","href":"%41%3CHTTP:http:"}
@@ -5486,11 +5486,11 @@ p	1	xn--fiq228c\u000a \u30008080	{"protocol":null,"slashes":null,"auth":null,"ho
 p	2	xn--fiq228c\u000a \u30008080	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"xn--fiq228c%0A%20\u30008080","path":"xn--fiq228c%0A%20\u30008080","href":"xn--fiq228c%0A%20\u30008080"}
 p	3	xn--fiq228c\u000a \u30008080	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"xn--fiq228c%0A%20\u30008080","path":"xn--fiq228c%0A%20\u30008080","href":"xn--fiq228c%0A%20\u30008080"}
 f	xn--fiq228c\u000a \u30008080	xn--fiq228c%0A%20\u30008080
-p	0	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	{"protocol":"http:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":"#\ufeffx-y","search":"?x-y","query":"x-y","pathname":"/:\u4e2d.%zz","path":"/:\u4e2d.%zz?x-y","href":"http://https/:\u4e2d.%zz?x-y#\ufeffx-y"}
-p	1	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	{"protocol":"http:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":"#\ufeffx-y","search":"?x-y","query":{"x-y":""},"pathname":"/:\u4e2d.%zz","path":"/:\u4e2d.%zz?x-y","href":"http://https/:\u4e2d.%zz?x-y#\ufeffx-y"}
-p	2	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	{"protocol":"http:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":"#\ufeffx-y","search":"?x-y","query":"x-y","pathname":"/:\u4e2d.%zz","path":"/:\u4e2d.%zz?x-y","href":"http://https/:\u4e2d.%zz?x-y#\ufeffx-y"}
-p	3	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	{"protocol":"http:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":"#\ufeffx-y","search":"?x-y","query":{"x-y":""},"pathname":"/:\u4e2d.%zz","path":"/:\u4e2d.%zz?x-y","href":"http://https/:\u4e2d.%zz?x-y#\ufeffx-y"}
-f	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	http://https/:\u4e2d.%zz?x-y#\ufeffx-y
+p	0	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	E:ERR_INVALID_ARG_VALUE
+p	1	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	E:ERR_INVALID_ARG_VALUE
+p	2	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	E:ERR_INVALID_ARG_VALUE
+p	3	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	E:ERR_INVALID_ARG_VALUE
+f	HTTP:https:\u4e2d.%zz?x-y#\ufeffx-y	E:ERR_INVALID_ARG_VALUE
 p	0	https:c.com//\u00a0.`.Bxn--fiq228c%C3%A9	{"protocol":"https:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"c.com//\u00a0.%60.Bxn--fiq228c%C3%A9","path":"c.com//\u00a0.%60.Bxn--fiq228c%C3%A9","href":"https:c.com//\u00a0.%60.Bxn--fiq228c%C3%A9"}
 p	1	https:c.com//\u00a0.`.Bxn--fiq228c%C3%A9	{"protocol":"https:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"c.com//\u00a0.%60.Bxn--fiq228c%C3%A9","path":"c.com//\u00a0.%60.Bxn--fiq228c%C3%A9","href":"https:c.com//\u00a0.%60.Bxn--fiq228c%C3%A9"}
 p	2	https:c.com//\u00a0.`.Bxn--fiq228c%C3%A9	{"protocol":"https:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"c.com//\u00a0.%60.Bxn--fiq228c%C3%A9","path":"c.com//\u00a0.%60.Bxn--fiq228c%C3%A9","href":"https:c.com//\u00a0.%60.Bxn--fiq228c%C3%A9"}
@@ -5921,11 +5921,11 @@ p	1	\u00a0%zz':c.com#<\ud83d\udca9	{"protocol":null,"slashes":null,"auth":null,"
 p	2	\u00a0%zz':c.com#<\ud83d\udca9	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#%3C\ud83d\udca9","search":null,"query":null,"pathname":"%zz%27:c.com","path":"%zz%27:c.com","href":"%zz%27:c.com#%3C\ud83d\udca9"}
 p	3	\u00a0%zz':c.com#<\ud83d\udca9	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#%3C\ud83d\udca9","search":null,"query":{},"pathname":"%zz%27:c.com","path":"%zz%27:c.com","href":"%zz%27:c.com#%3C\ud83d\udca9"}
 f	\u00a0%zz':c.com#<\ud83d\udca9	%zz%27:c.com#%3C\ud83d\udca9
-p	0	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	{"protocol":"mailto:","slashes":null,"auth":null,"host":"javascript","port":null,"hostname":"javascript","hash":null,"search":null,"query":null,"pathname":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","path":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","href":"mailto:javascript/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df"}
-p	1	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	{"protocol":"mailto:","slashes":null,"auth":null,"host":"javascript","port":null,"hostname":"javascript","hash":null,"search":null,"query":{},"pathname":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","path":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","href":"mailto:javascript/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df"}
-p	2	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	{"protocol":"mailto:","slashes":null,"auth":null,"host":"javascript","port":null,"hostname":"javascript","hash":null,"search":null,"query":null,"pathname":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","path":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","href":"mailto:javascript/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df"}
-p	3	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	{"protocol":"mailto:","slashes":null,"auth":null,"host":"javascript","port":null,"hostname":"javascript","hash":null,"search":null,"query":{},"pathname":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","path":"/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df","href":"mailto:javascript/:xn--fiq228c/\u005cud800\u05d0file:mailto:\u00df"}
-f	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	mailto:javascript/:xn--fiq228c/\ud800\u05d0file:mailto:\u00df
+p	0	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	E:ERR_INVALID_ARG_VALUE
+p	1	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	E:ERR_INVALID_ARG_VALUE
+p	2	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	E:ERR_INVALID_ARG_VALUE
+p	3	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	E:ERR_INVALID_ARG_VALUE
+f	mailto:javascript:xn--fiq228c/\ud800\u05d0file:mailto:\u00df	E:ERR_INVALID_ARG_VALUE
 p	0	%zz%HTTP:\u4e2d{\u00a0.\u0009B\ud800	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800","path":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800","href":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800"}
 p	1	%zz%HTTP:\u4e2d{\u00a0.\u0009B\ud800	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800","path":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800","href":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800"}
 p	2	%zz%HTTP:\u4e2d{\u00a0.\u0009B\ud800	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800","path":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800","href":"%zz%HTTP:\u4e2d%7B\u00a0.%09B\u005cud800"}
@@ -6951,11 +6951,11 @@ p	1	ws:&;%zzfile:%zz\u000a\u0130	{"protocol":"ws:","slashes":null,"auth":null,"h
 p	2	ws:&;%zzfile:%zz\u000a\u0130	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"&;%zzfile:%zz%0A\u0130","path":"&;%zzfile:%zz%0A\u0130","href":"ws:&;%zzfile:%zz%0A\u0130"}
 p	3	ws:&;%zzfile:%zz\u000a\u0130	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"&;%zzfile:%zz%0A\u0130","path":"&;%zzfile:%zz%0A\u0130","href":"ws:&;%zzfile:%zz%0A\u0130"}
 f	ws:&;%zzfile:%zz\u000a\u0130	ws:&;%zzfile:%zz%0A\u0130
-p	0	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_URL
-p	1	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_URL
-p	2	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_URL
-p	3	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_URL
-f	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_URL
+p	0	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_ARG_VALUE
+p	1	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_ARG_VALUE
+p	2	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_ARG_VALUE
+p	3	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_ARG_VALUE
+f	HTTP:&[\u0628HTTP:\u00df	E:ERR_INVALID_ARG_VALUE
 p	0	ws:javascript:\u05d0';//[Bjavascript:	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"javascript:\u05d0%27;//[Bjavascript:","path":"javascript:\u05d0%27;//[Bjavascript:","href":"ws:javascript:\u05d0%27;//[Bjavascript:"}
 p	1	ws:javascript:\u05d0';//[Bjavascript:	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"javascript:\u05d0%27;//[Bjavascript:","path":"javascript:\u05d0%27;//[Bjavascript:","href":"ws:javascript:\u05d0%27;//[Bjavascript:"}
 p	2	ws:javascript:\u05d0';//[Bjavascript:	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"javascript:\u05d0%27;//[Bjavascript:","path":"javascript:\u05d0%27;//[Bjavascript:","href":"ws:javascript:\u05d0%27;//[Bjavascript:"}
@@ -7086,11 +7086,11 @@ p	1	?\u000aws:;?ws:	{"protocol":null,"slashes":null,"auth":null,"host":null,"por
 p	2	?\u000aws:;?ws:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":"?%0Aws:;?ws:","query":"%0Aws:;?ws:","pathname":null,"path":"?%0Aws:;?ws:","href":"?%0Aws:;?ws:"}
 p	3	?\u000aws:;?ws:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":"?%0Aws:;?ws:","query":{"\u005cnws:;?ws:":""},"pathname":null,"path":"?%0Aws:;?ws:","href":"?%0Aws:;?ws:"}
 f	?\u000aws:;?ws:	?%0Aws:;?ws:
-p	0	HTTP:foo:\u0130?	{"protocol":"http:","slashes":null,"auth":null,"host":"foo","port":null,"hostname":"foo","hash":null,"search":"?","query":"","pathname":"/:\u0130","path":"/:\u0130?","href":"http://foo/:\u0130?"}
-p	1	HTTP:foo:\u0130?	{"protocol":"http:","slashes":null,"auth":null,"host":"foo","port":null,"hostname":"foo","hash":null,"search":"?","query":{},"pathname":"/:\u0130","path":"/:\u0130?","href":"http://foo/:\u0130?"}
-p	2	HTTP:foo:\u0130?	{"protocol":"http:","slashes":null,"auth":null,"host":"foo","port":null,"hostname":"foo","hash":null,"search":"?","query":"","pathname":"/:\u0130","path":"/:\u0130?","href":"http://foo/:\u0130?"}
-p	3	HTTP:foo:\u0130?	{"protocol":"http:","slashes":null,"auth":null,"host":"foo","port":null,"hostname":"foo","hash":null,"search":"?","query":{},"pathname":"/:\u0130","path":"/:\u0130?","href":"http://foo/:\u0130?"}
-f	HTTP:foo:\u0130?	http://foo/:\u0130?
+p	0	HTTP:foo:\u0130?	E:ERR_INVALID_ARG_VALUE
+p	1	HTTP:foo:\u0130?	E:ERR_INVALID_ARG_VALUE
+p	2	HTTP:foo:\u0130?	E:ERR_INVALID_ARG_VALUE
+p	3	HTTP:foo:\u0130?	E:ERR_INVALID_ARG_VALUE
+f	HTTP:foo:\u0130?	E:ERR_INVALID_ARG_VALUE
 p	0	%zz\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%zz/","path":"%zz/","href":"%zz/"}
 p	1	%zz\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%zz/","path":"%zz/","href":"%zz/"}
 p	2	%zz\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%zz/","path":"%zz/","href":"%zz/"}
@@ -8098,8 +8098,8 @@ p	3	@%41\u000a\ufeff//file:;c.com	{"protocol":null,"slashes":null,"auth":null,"h
 f	@%41\u000a\ufeff//file:;c.com	@%41%0A\ufeff//file:;c.com
 p	0	//\u0130[file:=%zz..	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"//\u0130[file:=%zz..","path":"//\u0130[file:=%zz..","href":"//\u0130[file:=%zz.."}
 p	1	//\u0130[file:=%zz..	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"//\u0130[file:=%zz..","path":"//\u0130[file:=%zz..","href":"//\u0130[file:=%zz.."}
-p	2	//\u0130[file:=%zz..	E:ERR_INVALID_URL
-p	3	//\u0130[file:=%zz..	E:ERR_INVALID_URL
+p	2	//\u0130[file:=%zz..	E:ERR_INVALID_ARG_VALUE
+p	3	//\u0130[file:=%zz..	E:ERR_INVALID_ARG_VALUE
 f	//\u0130[file:=%zz..	//\u0130[file:=%zz..
 p	0	#%41{c.com\u0301{xn--\u200d{{	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#%41%7Bc.com\u0301%7Bxn--\u200d%7B%7B","search":null,"query":null,"pathname":null,"path":null,"href":"#%41%7Bc.com\u0301%7Bxn--\u200d%7B%7B"}
 p	1	#%41{c.com\u0301{xn--\u200d{{	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#%41%7Bc.com\u0301%7Bxn--\u200d%7B%7B","search":null,"query":{},"pathname":null,"path":null,"href":"#%41%7Bc.com\u0301%7Bxn--\u200d%7B%7B"}
@@ -8166,11 +8166,11 @@ p	1	https:[\u200d \u00df\u3000	{"protocol":"https:","slashes":null,"auth":null,"
 p	2	https:[\u200d \u00df\u3000	{"protocol":"https:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"[\u200d%20\u00df\u3000","path":"[\u200d%20\u00df\u3000","href":"https:[\u200d%20\u00df\u3000"}
 p	3	https:[\u200d \u00df\u3000	{"protocol":"https:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"[\u200d%20\u00df\u3000","path":"[\u200d%20\u00df\u3000","href":"https:[\u200d%20\u00df\u3000"}
 f	https:[\u200d \u00df\u3000	https:[\u200d%20\u00df\u3000
-p	0	.foo:file:javascript:javascript:'8080\ufeff	{"protocol":".foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":null,"pathname":"/:javascript:javascript%278080","path":"/:javascript:javascript%278080","href":".foo:file/:javascript:javascript%278080"}
-p	1	.foo:file:javascript:javascript:'8080\ufeff	{"protocol":".foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":{},"pathname":"/:javascript:javascript%278080","path":"/:javascript:javascript%278080","href":".foo:file/:javascript:javascript%278080"}
-p	2	.foo:file:javascript:javascript:'8080\ufeff	{"protocol":".foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":null,"pathname":"/:javascript:javascript%278080","path":"/:javascript:javascript%278080","href":".foo:file/:javascript:javascript%278080"}
-p	3	.foo:file:javascript:javascript:'8080\ufeff	{"protocol":".foo:","slashes":null,"auth":null,"host":"file","port":null,"hostname":"file","hash":null,"search":null,"query":{},"pathname":"/:javascript:javascript%278080","path":"/:javascript:javascript%278080","href":".foo:file/:javascript:javascript%278080"}
-f	.foo:file:javascript:javascript:'8080\ufeff	.foo:file/:javascript:javascript%278080
+p	0	.foo:file:javascript:javascript:'8080\ufeff	E:ERR_INVALID_ARG_VALUE
+p	1	.foo:file:javascript:javascript:'8080\ufeff	E:ERR_INVALID_ARG_VALUE
+p	2	.foo:file:javascript:javascript:'8080\ufeff	E:ERR_INVALID_ARG_VALUE
+p	3	.foo:file:javascript:javascript:'8080\ufeff	E:ERR_INVALID_ARG_VALUE
+f	.foo:file:javascript:javascript:'8080\ufeff	E:ERR_INVALID_ARG_VALUE
 p	0	/\u4e2d\u00df\u200d%zz	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"/\u4e2d\u00df\u200d%zz","path":"/\u4e2d\u00df\u200d%zz","href":"/\u4e2d\u00df\u200d%zz"}
 p	1	/\u4e2d\u00df\u200d%zz	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"/\u4e2d\u00df\u200d%zz","path":"/\u4e2d\u00df\u200d%zz","href":"/\u4e2d\u00df\u200d%zz"}
 p	2	/\u4e2d\u00df\u200d%zz	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"/\u4e2d\u00df\u200d%zz","path":"/\u4e2d\u00df\u200d%zz","href":"/\u4e2d\u00df\u200d%zz"}
@@ -8301,11 +8301,11 @@ p	1	http:\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@\u00a0	{"protocol":"http:","sl
 p	2	http:\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@\u00a0	{"protocol":"http:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@","path":"\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@","href":"http:\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@"}
 p	3	http:\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@\u00a0	{"protocol":"http:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@","path":"\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@","href":"http:\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@"}
 f	http:\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@\u00a0	http:\u00dfxn--xn--\ud83d\udca9\ud83d\udca9;:@
-p	0	HTTP://%41}\u00dfx-y@::1"	{"protocol":"http:","slashes":true,"auth":"A}\u00dfx-y","host":":1","port":"1","hostname":"","hash":null,"search":null,"query":null,"pathname":"/:%22","path":"/:%22","href":"http://A%7D%C3%9Fx-y@:1/:%22"}
-p	1	HTTP://%41}\u00dfx-y@::1"	{"protocol":"http:","slashes":true,"auth":"A}\u00dfx-y","host":":1","port":"1","hostname":"","hash":null,"search":null,"query":{},"pathname":"/:%22","path":"/:%22","href":"http://A%7D%C3%9Fx-y@:1/:%22"}
-p	2	HTTP://%41}\u00dfx-y@::1"	{"protocol":"http:","slashes":true,"auth":"A}\u00dfx-y","host":":1","port":"1","hostname":"","hash":null,"search":null,"query":null,"pathname":"/:%22","path":"/:%22","href":"http://A%7D%C3%9Fx-y@:1/:%22"}
-p	3	HTTP://%41}\u00dfx-y@::1"	{"protocol":"http:","slashes":true,"auth":"A}\u00dfx-y","host":":1","port":"1","hostname":"","hash":null,"search":null,"query":{},"pathname":"/:%22","path":"/:%22","href":"http://A%7D%C3%9Fx-y@:1/:%22"}
-f	HTTP://%41}\u00dfx-y@::1"	http://A%7D%C3%9Fx-y@:1/:%22
+p	0	HTTP://%41}\u00dfx-y@::1"	E:ERR_INVALID_ARG_VALUE
+p	1	HTTP://%41}\u00dfx-y@::1"	E:ERR_INVALID_ARG_VALUE
+p	2	HTTP://%41}\u00dfx-y@::1"	E:ERR_INVALID_ARG_VALUE
+p	3	HTTP://%41}\u00dfx-y@::1"	E:ERR_INVALID_ARG_VALUE
+f	HTTP://%41}\u00dfx-y@::1"	E:ERR_INVALID_ARG_VALUE
 p	0	a1.2.3.4^	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"a1.2.3.4%5E","path":"a1.2.3.4%5E","href":"a1.2.3.4%5E"}
 p	1	a1.2.3.4^	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"a1.2.3.4%5E","path":"a1.2.3.4%5E","href":"a1.2.3.4%5E"}
 p	2	a1.2.3.4^	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"a1.2.3.4%5E","path":"a1.2.3.4%5E","href":"a1.2.3.4%5E"}
@@ -8496,11 +8496,11 @@ p	1	}\u3000\u00df ?:^&\u0628	{"protocol":null,"slashes":null,"auth":null,"host":
 p	2	}\u3000\u00df ?:^&\u0628	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":"?:%5E&\u0628","query":":%5E&\u0628","pathname":"%7D\u3000\u00df%20","path":"%7D\u3000\u00df%20?:%5E&\u0628","href":"%7D\u3000\u00df%20?:%5E&\u0628"}
 p	3	}\u3000\u00df ?:^&\u0628	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":"?:%5E&\u0628","query":{":^":"","\u0628":""},"pathname":"%7D\u3000\u00df%20","path":"%7D\u3000\u00df%20?:%5E&\u0628","href":"%7D\u3000\u00df%20?:%5E&\u0628"}
 f	}\u3000\u00df ?:^&\u0628	%7D\u3000\u00df%20?:%5E&\u0628
-p	0	HTTP:::1^	{"protocol":"http:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":null,"pathname":"/:%5E","path":"/:%5E","href":"http://:1/:%5E"}
-p	1	HTTP:::1^	{"protocol":"http:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":{},"pathname":"/:%5E","path":"/:%5E","href":"http://:1/:%5E"}
-p	2	HTTP:::1^	{"protocol":"http:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":null,"pathname":"/:%5E","path":"/:%5E","href":"http://:1/:%5E"}
-p	3	HTTP:::1^	{"protocol":"http:","slashes":null,"auth":null,"host":":1","port":"1","hostname":"","hash":null,"search":null,"query":{},"pathname":"/:%5E","path":"/:%5E","href":"http://:1/:%5E"}
-f	HTTP:::1^	http://:1/:%5E
+p	0	HTTP:::1^	E:ERR_INVALID_ARG_VALUE
+p	1	HTTP:::1^	E:ERR_INVALID_ARG_VALUE
+p	2	HTTP:::1^	E:ERR_INVALID_ARG_VALUE
+p	3	HTTP:::1^	E:ERR_INVALID_ARG_VALUE
+f	HTTP:::1^	E:ERR_INVALID_ARG_VALUE
 p	0	http:%C3%A9"	{"protocol":"http:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%C3%A9%22","path":"%C3%A9%22","href":"http:%C3%A9%22"}
 p	1	http:%C3%A9"	{"protocol":"http:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%C3%A9%22","path":"%C3%A9%22","href":"http:%C3%A9%22"}
 p	2	http:%C3%A9"	{"protocol":"http:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%C3%A9%22","path":"%C3%A9%22","href":"http:%C3%A9%22"}
@@ -9411,11 +9411,11 @@ p	1	ws:B\ud83d\udca9\u200d	{"protocol":"ws:","slashes":null,"auth":null,"host":n
 p	2	ws:B\ud83d\udca9\u200d	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"B\ud83d\udca9\u200d","path":"B\ud83d\udca9\u200d","href":"ws:B\ud83d\udca9\u200d"}
 p	3	ws:B\ud83d\udca9\u200d	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"B\ud83d\udca9\u200d","path":"B\ud83d\udca9\u200d","href":"ws:B\ud83d\udca9\u200d"}
 f	ws:B\ud83d\udca9\u200d	ws:B\ud83d\udca9\u200d
-p	0	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	{"protocol":"mailto:","slashes":null,"auth":"foo:\u0628&\u00e9","host":"1.2.3.4javascript","port":null,"hostname":"1.2.3.4javascript","hash":null,"search":null,"query":null,"pathname":"/:c.com","path":"/:c.com","href":"mailto:foo:%D8%A8%26%C3%A9@1.2.3.4javascript/:c.com"}
-p	1	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	{"protocol":"mailto:","slashes":null,"auth":"foo:\u0628&\u00e9","host":"1.2.3.4javascript","port":null,"hostname":"1.2.3.4javascript","hash":null,"search":null,"query":{},"pathname":"/:c.com","path":"/:c.com","href":"mailto:foo:%D8%A8%26%C3%A9@1.2.3.4javascript/:c.com"}
-p	2	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	{"protocol":"mailto:","slashes":null,"auth":"foo:\u0628&\u00e9","host":"1.2.3.4javascript","port":null,"hostname":"1.2.3.4javascript","hash":null,"search":null,"query":null,"pathname":"/:c.com","path":"/:c.com","href":"mailto:foo:%D8%A8%26%C3%A9@1.2.3.4javascript/:c.com"}
-p	3	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	{"protocol":"mailto:","slashes":null,"auth":"foo:\u0628&\u00e9","host":"1.2.3.4javascript","port":null,"hostname":"1.2.3.4javascript","hash":null,"search":null,"query":{},"pathname":"/:c.com","path":"/:c.com","href":"mailto:foo:%D8%A8%26%C3%A9@1.2.3.4javascript/:c.com"}
-f	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	mailto:foo:%D8%A8%26%C3%A9@1.2.3.4javascript/:c.com
+p	0	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	E:ERR_INVALID_ARG_VALUE
+p	1	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	E:ERR_INVALID_ARG_VALUE
+p	2	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	E:ERR_INVALID_ARG_VALUE
+p	3	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	E:ERR_INVALID_ARG_VALUE
+f	mailto:foo:\u0628\u000a&\u00e9@1.2.3.4javascript:c.com	E:ERR_INVALID_ARG_VALUE
 p	0	\ufeff\u0628\ufeff	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\u0628","path":"\u0628","href":"\u0628"}
 p	1	\ufeff\u0628\ufeff	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"\u0628","path":"\u0628","href":"\u0628"}
 p	2	\ufeff\u0628\ufeff	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\u0628","path":"\u0628","href":"\u0628"}
@@ -9746,11 +9746,11 @@ p	1	ws:%C3%A9\u200d\u0009xn--fiq228ca\u00a0.%C3%A9a	{"protocol":"ws:","slashes":
 p	2	ws:%C3%A9\u200d\u0009xn--fiq228ca\u00a0.%C3%A9a	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%C3%A9\u200d%09xn--fiq228ca\u00a0.%C3%A9a","path":"%C3%A9\u200d%09xn--fiq228ca\u00a0.%C3%A9a","href":"ws:%C3%A9\u200d%09xn--fiq228ca\u00a0.%C3%A9a"}
 p	3	ws:%C3%A9\u200d\u0009xn--fiq228ca\u00a0.%C3%A9a	{"protocol":"ws:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%C3%A9\u200d%09xn--fiq228ca\u00a0.%C3%A9a","path":"%C3%A9\u200d%09xn--fiq228ca\u00a0.%C3%A9a","href":"ws:%C3%A9\u200d%09xn--fiq228ca\u00a0.%C3%A9a"}
 f	ws:%C3%A9\u200d\u0009xn--fiq228ca\u00a0.%C3%A9a	ws:%C3%A9\u200d%09xn--fiq228ca\u00a0.%C3%A9a
-p	0	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	{"protocol":"x-y1.2.3.4foo:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":null,"pathname":"/::1\u4e2d%\u05d0https:","path":"/::1\u4e2d%\u05d0https:","href":"x-y1.2.3.4foo:/::1\u4e2d%\u05d0https:"}
-p	1	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	{"protocol":"x-y1.2.3.4foo:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":{},"pathname":"/::1\u4e2d%\u05d0https:","path":"/::1\u4e2d%\u05d0https:","href":"x-y1.2.3.4foo:/::1\u4e2d%\u05d0https:"}
-p	2	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	{"protocol":"x-y1.2.3.4foo:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":null,"pathname":"/::1\u4e2d%\u05d0https:","path":"/::1\u4e2d%\u05d0https:","href":"x-y1.2.3.4foo:/::1\u4e2d%\u05d0https:"}
-p	3	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	{"protocol":"x-y1.2.3.4foo:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":{},"pathname":"/::1\u4e2d%\u05d0https:","path":"/::1\u4e2d%\u05d0https:","href":"x-y1.2.3.4foo:/::1\u4e2d%\u05d0https:"}
-f	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	x-y1.2.3.4foo:/::1\u4e2d%\u05d0https:
+p	0	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	E:ERR_INVALID_ARG_VALUE
+p	1	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	E:ERR_INVALID_ARG_VALUE
+p	2	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	E:ERR_INVALID_ARG_VALUE
+p	3	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	E:ERR_INVALID_ARG_VALUE
+f	x-y1.2.3.4foo:::1\u4e2d%\u05d0https:	E:ERR_INVALID_ARG_VALUE
 p	0	\u200d\u00e9>::1foo:<x-yfoo:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:","path":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:","href":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:"}
 p	1	\u200d\u00e9>::1foo:<x-yfoo:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:","path":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:","href":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:"}
 p	2	\u200d\u00e9>::1foo:<x-yfoo:	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:","path":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:","href":"\u200d\u00e9%3E::1foo:%3Cx-yfoo:"}
@@ -10148,8 +10148,8 @@ p	3	\ud800::1xn--fiq228c\u00e9xn--'	{"protocol":null,"slashes":null,"auth":null,
 f	\ud800::1xn--fiq228c\u00e9xn--'	\ud800::1xn--fiq228c\u00e9xn--%27
 p	0	//\ud800http:\ufeff:?`	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":"?%60","query":"%60","pathname":"//\u005cud800http:\ufeff:","path":"//\u005cud800http:\ufeff:?%60","href":"//\u005cud800http:\ufeff:?%60"}
 p	1	//\ud800http:\ufeff:?`	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":"?%60","query":{"`":""},"pathname":"//\u005cud800http:\ufeff:","path":"//\u005cud800http:\ufeff:?%60","href":"//\u005cud800http:\ufeff:?%60"}
-p	2	//\ud800http:\ufeff:?`	E:ERR_INVALID_URL
-p	3	//\ud800http:\ufeff:?`	E:ERR_INVALID_URL
+p	2	//\ud800http:\ufeff:?`	E:ERR_INVALID_ARG_VALUE
+p	3	//\ud800http:\ufeff:?`	E:ERR_INVALID_ARG_VALUE
 f	//\ud800http:\ufeff:?`	//\ud800http:\ufeff:?%60
 p	0	'\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%27/","path":"%27/","href":"%27/"}
 p	1	'\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%27/","path":"%27/","href":"%27/"}
@@ -10381,11 +10381,11 @@ p	1	x-y//\ufeffmailto::@B%41	{"protocol":null,"slashes":null,"auth":null,"host":
 p	2	x-y//\ufeffmailto::@B%41	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"x-y//\ufeffmailto::@B%41","path":"x-y//\ufeffmailto::@B%41","href":"x-y//\ufeffmailto::@B%41"}
 p	3	x-y//\ufeffmailto::@B%41	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"x-y//\ufeffmailto::@B%41","path":"x-y//\ufeffmailto::@B%41","href":"x-y//\ufeffmailto::@B%41"}
 f	x-y//\ufeffmailto::@B%41	x-y//\ufeffmailto::@B%41
-p	0	mailto:http:\ud800\u00a0	{"protocol":"mailto:","slashes":null,"auth":null,"host":"http","port":null,"hostname":"http","hash":null,"search":null,"query":null,"pathname":"/:\u005cud800","path":"/:\u005cud800","href":"mailto:http/:\u005cud800"}
-p	1	mailto:http:\ud800\u00a0	{"protocol":"mailto:","slashes":null,"auth":null,"host":"http","port":null,"hostname":"http","hash":null,"search":null,"query":{},"pathname":"/:\u005cud800","path":"/:\u005cud800","href":"mailto:http/:\u005cud800"}
-p	2	mailto:http:\ud800\u00a0	{"protocol":"mailto:","slashes":null,"auth":null,"host":"http","port":null,"hostname":"http","hash":null,"search":null,"query":null,"pathname":"/:\u005cud800","path":"/:\u005cud800","href":"mailto:http/:\u005cud800"}
-p	3	mailto:http:\ud800\u00a0	{"protocol":"mailto:","slashes":null,"auth":null,"host":"http","port":null,"hostname":"http","hash":null,"search":null,"query":{},"pathname":"/:\u005cud800","path":"/:\u005cud800","href":"mailto:http/:\u005cud800"}
-f	mailto:http:\ud800\u00a0	mailto:http/:\ud800
+p	0	mailto:http:\ud800\u00a0	E:ERR_INVALID_ARG_VALUE
+p	1	mailto:http:\ud800\u00a0	E:ERR_INVALID_ARG_VALUE
+p	2	mailto:http:\ud800\u00a0	E:ERR_INVALID_ARG_VALUE
+p	3	mailto:http:\ud800\u00a0	E:ERR_INVALID_ARG_VALUE
+f	mailto:http:\ud800\u00a0	E:ERR_INVALID_ARG_VALUE
 p	0	\u00df:>c.com;#`	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#%60","search":null,"query":null,"pathname":"\u00df:%3Ec.com;","path":"\u00df:%3Ec.com;","href":"\u00df:%3Ec.com;#%60"}
 p	1	\u00df:>c.com;#`	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#%60","search":null,"query":{},"pathname":"\u00df:%3Ec.com;","path":"\u00df:%3Ec.com;","href":"\u00df:%3Ec.com;#%60"}
 p	2	\u00df:>c.com;#`	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":"#%60","search":null,"query":null,"pathname":"\u00df:%3Ec.com;","path":"\u00df:%3Ec.com;","href":"\u00df:%3Ec.com;#%60"}
@@ -11296,11 +11296,11 @@ p	1	file:]ws:\u00a0	{"protocol":"file:","slashes":null,"auth":null,"host":null,"
 p	2	file:]ws:\u00a0	{"protocol":"file:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"]ws:","path":"]ws:","href":"file://]ws:"}
 p	3	file:]ws:\u00a0	{"protocol":"file:","slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"]ws:","path":"]ws:","href":"file://]ws:"}
 f	file:]ws:\u00a0	file://]ws:
-p	0	mailto:x-yhttp:a\u00a0\u0301?	{"protocol":"mailto:","slashes":null,"auth":null,"host":"x-yhttp","port":null,"hostname":"x-yhttp","hash":null,"search":"?","query":"","pathname":"/:a\u00a0\u0301","path":"/:a\u00a0\u0301?","href":"mailto:x-yhttp/:a\u00a0\u0301?"}
-p	1	mailto:x-yhttp:a\u00a0\u0301?	{"protocol":"mailto:","slashes":null,"auth":null,"host":"x-yhttp","port":null,"hostname":"x-yhttp","hash":null,"search":"?","query":{},"pathname":"/:a\u00a0\u0301","path":"/:a\u00a0\u0301?","href":"mailto:x-yhttp/:a\u00a0\u0301?"}
-p	2	mailto:x-yhttp:a\u00a0\u0301?	{"protocol":"mailto:","slashes":null,"auth":null,"host":"x-yhttp","port":null,"hostname":"x-yhttp","hash":null,"search":"?","query":"","pathname":"/:a\u00a0\u0301","path":"/:a\u00a0\u0301?","href":"mailto:x-yhttp/:a\u00a0\u0301?"}
-p	3	mailto:x-yhttp:a\u00a0\u0301?	{"protocol":"mailto:","slashes":null,"auth":null,"host":"x-yhttp","port":null,"hostname":"x-yhttp","hash":null,"search":"?","query":{},"pathname":"/:a\u00a0\u0301","path":"/:a\u00a0\u0301?","href":"mailto:x-yhttp/:a\u00a0\u0301?"}
-f	mailto:x-yhttp:a\u00a0\u0301?	mailto:x-yhttp/:a\u00a0\u0301?
+p	0	mailto:x-yhttp:a\u00a0\u0301?	E:ERR_INVALID_ARG_VALUE
+p	1	mailto:x-yhttp:a\u00a0\u0301?	E:ERR_INVALID_ARG_VALUE
+p	2	mailto:x-yhttp:a\u00a0\u0301?	E:ERR_INVALID_ARG_VALUE
+p	3	mailto:x-yhttp:a\u00a0\u0301?	E:ERR_INVALID_ARG_VALUE
+f	mailto:x-yhttp:a\u00a0\u0301?	E:ERR_INVALID_ARG_VALUE
 p	0	\u00df\u005c;\ud800	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\u00df/;\u005cud800","path":"\u00df/;\u005cud800","href":"\u00df/;\u005cud800"}
 p	1	\u00df\u005c;\ud800	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"\u00df/;\u005cud800","path":"\u00df/;\u005cud800","href":"\u00df/;\u005cud800"}
 p	2	\u00df\u005c;\ud800	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\u00df/;\u005cud800","path":"\u00df/;\u005cud800","href":"\u00df/;\u005cud800"}
@@ -11321,11 +11321,11 @@ p	1	|\u0130\u0301ws:&\u200dhttp:<`}	{"protocol":null,"slashes":null,"auth":null,
 p	2	|\u0130\u0301ws:&\u200dhttp:<`}	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"%7C\u0130\u0301ws:&\u200dhttp:%3C%60%7D","path":"%7C\u0130\u0301ws:&\u200dhttp:%3C%60%7D","href":"%7C\u0130\u0301ws:&\u200dhttp:%3C%60%7D"}
 p	3	|\u0130\u0301ws:&\u200dhttp:<`}	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"%7C\u0130\u0301ws:&\u200dhttp:%3C%60%7D","path":"%7C\u0130\u0301ws:&\u200dhttp:%3C%60%7D","href":"%7C\u0130\u0301ws:&\u200dhttp:%3C%60%7D"}
 f	|\u0130\u0301ws:&\u200dhttp:<`}	%7C\u0130\u0301ws:&\u200dhttp:%3C%60%7D
-p	0	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	{"protocol":"foo:","slashes":null,"auth":null,"host":"mailto","port":null,"hostname":"mailto","hash":null,"search":null,"query":null,"pathname":"/:foo:..\ufeff1.2.3.4\u005cud800&","path":"/:foo:..\ufeff1.2.3.4\u005cud800&","href":"foo:mailto/:foo:..\ufeff1.2.3.4\u005cud800&"}
-p	1	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	{"protocol":"foo:","slashes":null,"auth":null,"host":"mailto","port":null,"hostname":"mailto","hash":null,"search":null,"query":{},"pathname":"/:foo:..\ufeff1.2.3.4\u005cud800&","path":"/:foo:..\ufeff1.2.3.4\u005cud800&","href":"foo:mailto/:foo:..\ufeff1.2.3.4\u005cud800&"}
-p	2	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	{"protocol":"foo:","slashes":null,"auth":null,"host":"mailto","port":null,"hostname":"mailto","hash":null,"search":null,"query":null,"pathname":"/:foo:..\ufeff1.2.3.4\u005cud800&","path":"/:foo:..\ufeff1.2.3.4\u005cud800&","href":"foo:mailto/:foo:..\ufeff1.2.3.4\u005cud800&"}
-p	3	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	{"protocol":"foo:","slashes":null,"auth":null,"host":"mailto","port":null,"hostname":"mailto","hash":null,"search":null,"query":{},"pathname":"/:foo:..\ufeff1.2.3.4\u005cud800&","path":"/:foo:..\ufeff1.2.3.4\u005cud800&","href":"foo:mailto/:foo:..\ufeff1.2.3.4\u005cud800&"}
-f	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	foo:mailto/:foo:..\ufeff1.2.3.4\ud800&
+p	0	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	E:ERR_INVALID_ARG_VALUE
+p	1	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	E:ERR_INVALID_ARG_VALUE
+p	2	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	E:ERR_INVALID_ARG_VALUE
+p	3	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	E:ERR_INVALID_ARG_VALUE
+f	foo:mailto:foo:..\ufeff1.2.3.4\ud800&	E:ERR_INVALID_ARG_VALUE
 p	0	\ud83d\udca9\u3000x-y`//:@."\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\ud83d\udca9\u3000x-y%60//:@.%22/","path":"\ud83d\udca9\u3000x-y%60//:@.%22/","href":"\ud83d\udca9\u3000x-y%60//:@.%22/"}
 p	1	\ud83d\udca9\u3000x-y`//:@."\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"\ud83d\udca9\u3000x-y%60//:@.%22/","path":"\ud83d\udca9\u3000x-y%60//:@.%22/","href":"\ud83d\udca9\u3000x-y%60//:@.%22/"}
 p	2	\ud83d\udca9\u3000x-y`//:@."\u005c	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"\ud83d\udca9\u3000x-y%60//:@.%22/","path":"\ud83d\udca9\u3000x-y%60//:@.%22/","href":"\ud83d\udca9\u3000x-y%60//:@.%22/"}
@@ -11361,11 +11361,11 @@ p	1	 mailto: \u4e2dhttp:@xn--\u00e9:|	E:ERR_INVALID_URL
 p	2	 mailto: \u4e2dhttp:@xn--\u00e9:|	E:ERR_INVALID_URL
 p	3	 mailto: \u4e2dhttp:@xn--\u00e9:|	E:ERR_INVALID_URL
 f	 mailto: \u4e2dhttp:@xn--\u00e9:|	E:ERR_INVALID_URL
-p	0	mailto:.javascript:\u200dxn--fiq228c	{"protocol":"mailto:","slashes":null,"auth":null,"host":".javascript","port":null,"hostname":".javascript","hash":null,"search":null,"query":null,"pathname":"/:\u200dxn--fiq228c","path":"/:\u200dxn--fiq228c","href":"mailto:.javascript/:\u200dxn--fiq228c"}
-p	1	mailto:.javascript:\u200dxn--fiq228c	{"protocol":"mailto:","slashes":null,"auth":null,"host":".javascript","port":null,"hostname":".javascript","hash":null,"search":null,"query":{},"pathname":"/:\u200dxn--fiq228c","path":"/:\u200dxn--fiq228c","href":"mailto:.javascript/:\u200dxn--fiq228c"}
-p	2	mailto:.javascript:\u200dxn--fiq228c	{"protocol":"mailto:","slashes":null,"auth":null,"host":".javascript","port":null,"hostname":".javascript","hash":null,"search":null,"query":null,"pathname":"/:\u200dxn--fiq228c","path":"/:\u200dxn--fiq228c","href":"mailto:.javascript/:\u200dxn--fiq228c"}
-p	3	mailto:.javascript:\u200dxn--fiq228c	{"protocol":"mailto:","slashes":null,"auth":null,"host":".javascript","port":null,"hostname":".javascript","hash":null,"search":null,"query":{},"pathname":"/:\u200dxn--fiq228c","path":"/:\u200dxn--fiq228c","href":"mailto:.javascript/:\u200dxn--fiq228c"}
-f	mailto:.javascript:\u200dxn--fiq228c	mailto:.javascript/:\u200dxn--fiq228c
+p	0	mailto:.javascript:\u200dxn--fiq228c	E:ERR_INVALID_ARG_VALUE
+p	1	mailto:.javascript:\u200dxn--fiq228c	E:ERR_INVALID_ARG_VALUE
+p	2	mailto:.javascript:\u200dxn--fiq228c	E:ERR_INVALID_ARG_VALUE
+p	3	mailto:.javascript:\u200dxn--fiq228c	E:ERR_INVALID_ARG_VALUE
+f	mailto:.javascript:\u200dxn--fiq228c	E:ERR_INVALID_ARG_VALUE
 p	0	\ufeff//	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"//","path":"//","href":"//"}
 p	1	\ufeff//	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"//","path":"//","href":"//"}
 p	2	\ufeff//	{"protocol":null,"slashes":true,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":null,"pathname":null,"path":null,"href":"//"}
@@ -11591,11 +11591,11 @@ p	1	..\u0009c.com']\u0130	{"protocol":null,"slashes":null,"auth":null,"host":nul
 p	2	..\u0009c.com']\u0130	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"..%09c.com%27]\u0130","path":"..%09c.com%27]\u0130","href":"..%09c.com%27]\u0130"}
 p	3	..\u0009c.com']\u0130	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"..%09c.com%27]\u0130","path":"..%09c.com%27]\u0130","href":"..%09c.com%27]\u0130"}
 f	..\u0009c.com']\u0130	..%09c.com%27]\u0130
-p	0	c.com::1\u4e2d\u0628\u0301	{"protocol":"c.com:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":null,"pathname":"/:1\u4e2d\u0628\u0301","path":"/:1\u4e2d\u0628\u0301","href":"c.com:/:1\u4e2d\u0628\u0301"}
-p	1	c.com::1\u4e2d\u0628\u0301	{"protocol":"c.com:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":{},"pathname":"/:1\u4e2d\u0628\u0301","path":"/:1\u4e2d\u0628\u0301","href":"c.com:/:1\u4e2d\u0628\u0301"}
-p	2	c.com::1\u4e2d\u0628\u0301	{"protocol":"c.com:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":null,"pathname":"/:1\u4e2d\u0628\u0301","path":"/:1\u4e2d\u0628\u0301","href":"c.com:/:1\u4e2d\u0628\u0301"}
-p	3	c.com::1\u4e2d\u0628\u0301	{"protocol":"c.com:","slashes":null,"auth":null,"host":"","port":null,"hostname":"","hash":null,"search":null,"query":{},"pathname":"/:1\u4e2d\u0628\u0301","path":"/:1\u4e2d\u0628\u0301","href":"c.com:/:1\u4e2d\u0628\u0301"}
-f	c.com::1\u4e2d\u0628\u0301	c.com:/:1\u4e2d\u0628\u0301
+p	0	c.com::1\u4e2d\u0628\u0301	E:ERR_INVALID_ARG_VALUE
+p	1	c.com::1\u4e2d\u0628\u0301	E:ERR_INVALID_ARG_VALUE
+p	2	c.com::1\u4e2d\u0628\u0301	E:ERR_INVALID_ARG_VALUE
+p	3	c.com::1\u4e2d\u0628\u0301	E:ERR_INVALID_ARG_VALUE
+f	c.com::1\u4e2d\u0628\u0301	E:ERR_INVALID_ARG_VALUE
 p	0	+a|a \u0009	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"+a%7Ca","path":"+a%7Ca","href":"+a%7Ca"}
 p	1	+a|a \u0009	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"+a%7Ca","path":"+a%7Ca","href":"+a%7Ca"}
 p	2	+a|a \u0009	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"+a%7Ca","path":"+a%7Ca","href":"+a%7Ca"}
@@ -11731,11 +11731,11 @@ p	1	[8080\u00e9\u05d08080	{"protocol":null,"slashes":null,"auth":null,"host":nul
 p	2	[8080\u00e9\u05d08080	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"[8080\u00e9\u05d08080","path":"[8080\u00e9\u05d08080","href":"[8080\u00e9\u05d08080"}
 p	3	[8080\u00e9\u05d08080	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"[8080\u00e9\u05d08080","path":"[8080\u00e9\u05d08080","href":"[8080\u00e9\u05d08080"}
 f	[8080\u00e9\u05d08080	[8080\u00e9\u05d08080
-p	0	..c.comhttp:https:[	{"protocol":"..c.comhttp:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":null,"search":null,"query":null,"pathname":"/:[","path":"/:[","href":"..c.comhttp:https/:["}
-p	1	..c.comhttp:https:[	{"protocol":"..c.comhttp:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":null,"search":null,"query":{},"pathname":"/:[","path":"/:[","href":"..c.comhttp:https/:["}
-p	2	..c.comhttp:https:[	{"protocol":"..c.comhttp:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":null,"search":null,"query":null,"pathname":"/:[","path":"/:[","href":"..c.comhttp:https/:["}
-p	3	..c.comhttp:https:[	{"protocol":"..c.comhttp:","slashes":null,"auth":null,"host":"https","port":null,"hostname":"https","hash":null,"search":null,"query":{},"pathname":"/:[","path":"/:[","href":"..c.comhttp:https/:["}
-f	..c.comhttp:https:[	..c.comhttp:https/:[
+p	0	..c.comhttp:https:[	E:ERR_INVALID_ARG_VALUE
+p	1	..c.comhttp:https:[	E:ERR_INVALID_ARG_VALUE
+p	2	..c.comhttp:https:[	E:ERR_INVALID_ARG_VALUE
+p	3	..c.comhttp:https:[	E:ERR_INVALID_ARG_VALUE
+f	..c.comhttp:https:[	E:ERR_INVALID_ARG_VALUE
 p	0	1.2.3.4\u200d	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"1.2.3.4\u200d","path":"1.2.3.4\u200d","href":"1.2.3.4\u200d"}
 p	1	1.2.3.4\u200d	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":{},"pathname":"1.2.3.4\u200d","path":"1.2.3.4\u200d","href":"1.2.3.4\u200d"}
 p	2	1.2.3.4\u200d	{"protocol":null,"slashes":null,"auth":null,"host":null,"port":null,"hostname":null,"hash":null,"search":null,"query":null,"pathname":"1.2.3.4\u200d","path":"1.2.3.4\u200d","href":"1.2.3.4\u200d"}
@@ -11908,7 +11908,7 @@ r	file://host/a/b	\u0130xn--fiq228chttps:\u0301HTTP:	file://host/a/\u0130xn--fiq
 r	foo:a/b	xn--fiq228c'\u00df\ufeff	foo:a/xn--fiq228c%27\u00df
 r	http://[::1]/a	'B%^x-y	http://[::1]/%27B%%5Ex-y
 r		foo:}\u000aB+	foo:%7DB+
-r	mailto:local1@domain1	foo:ws:\u00df`	foo:ws/:\u00df%60
+r	mailto:local1@domain1	foo:ws:\u00df`	E:ERR_INVALID_ARG_VALUE
 r	mailto:local1@domain1	//	mailto://
 r	https://a.com/b	\u0301\u0301https:1.2.3.4	https://a.com/\u0301\u0301https:1.2.3.4
 r	mailto:local1@domain1	}[.%zz	mailto:local1@%7D[.%zz
@@ -11937,7 +11937,7 @@ r	#x	#ws:+	#ws:+
 r	xn--/&mailto:	<\u000a ]	xn--/%3C%0A%20]
 r	file:///a/b	@\u01308080`:	file:///a/@\u01308080%60:
 r	http://a.com/b/c	%javascript:	http://a.com/b/%javascript:
-r	http://a.com	x-yhttp:ws:\ufeff\u0628	x-yhttp:ws/:\ufeff\u0628
+r	http://a.com	x-yhttp:ws:\ufeff\u0628	E:ERR_INVALID_ARG_VALUE
 r	foo://a/b	{file:	foo://a/%7Bfile:
 r	http://a.com/b/c/	8080@	http://a.com/b/c/8080@
 r	file:///a/b	x-y	file:///a/x-y
@@ -11959,7 +11959,7 @@ r	http://user:pw@a.com:81/b?x#y	{xn--mailto:\u3000^javascript:	http://user:pw@a.
 r	#x	\u4e2d xn--fiq228c|	\u4e2d%20xn--fiq228c%7C
 r	a/b/c	\ud83d\udca9}	a/b/\ud83d\udca9%7D
 r	https://a.com/b	\u4e2d[B	https://a.com/\u4e2d[B
-r	foo:a/b	foo:\u00e9::1//http:\u05d0	foo:xn--9ca:1/://http:\u05d0
+r	foo:a/b	foo:\u00e9::1//http:\u05d0	E:ERR_INVALID_ARG_VALUE
 r	https://a.com/b	.#\ufeff"	https://a.com/#\ufeff%22
 r	file://host/a/b	'8080javascript:	file://host/a/%278080javascript:
 r	mailto:local1@domain1	javascript:https:`c.com>	javascript:https:`c.com>
@@ -12033,7 +12033,7 @@ r	foo:a/b	%zz\u0130\u005c\u3000	foo:a/%zz\u0130/\u3000
 r	https://a.com/b	%zz\u00a0+a	https://a.com/%zz\u00a0+a
 r	\u00df\u0009//ws:HTTP:\u00e9	\ufeff%C3%A9\u00e9	\u00df%09//%C3%A9\u00e9
 r	https://a.com/b	\u000a8080\u00e9\u00e9%C3%A9>	https://a.com/8080\u00e9\u00e9%C3%A9%3E
-r	 //file:\u4e2dB.	HTTP:\u0130//	http://xn--i-9bb//
+r	 //file:\u4e2dB.	HTTP:\u0130//	E:ERR_INVALID_ARG_VALUE
 r	//a/b	\u00e9\u4e2dHTTP:	//a/\u00e9\u4e2dHTTP:
 r		\u00e9\ud800\u00df	\u00e9\ud800\u00df
 r	foo://a/b	\u000a{>x-y\u0130	foo://a/%7B%3Ex-y\u0130
@@ -12450,7 +12450,7 @@ r	mailto:local1@domain1	];^;foo:	mailto:local1@];%5E;foo:
 r	http://a/b/c/d;p?q	%41//+;	http://a/b/c/%41//+;
 r	foo:a/b	\u005c=	foo:/=
 r	file://host/a/b	::1//%zz::1%41	file://host/a/::1//%zz::1%41
-r	=\u0130\u00df8080	mailto:file:\ud83d\udca9%41\ufeff	mailto:file/:\ud83d\udca9%41
+r	=\u0130\u00df8080	mailto:file:\ud83d\udca9%41\ufeff	E:ERR_INVALID_ARG_VALUE
 r	http://a.com	HTTP:	http://a.com/
 r	http://[::1]/a	[file:\u00df:	http://[::1]/[file:\u00df:
 r	http://a.com/b/c/	\u00a0\u005c%zzx-y	http://a.com/%zzx-y
@@ -12520,7 +12520,7 @@ r	file:///a/b	`>"	file:///a/%60%3E%22
 r	//a/b	file:.}%41<	file:///.%7D%41%3C
 r	http://a/b/c/d;p?q	[\u005c\u000a	http://a/b/c/[/
 r	javascript:x	>\u0301+	javascript:%3E\u0301+
-r	//a/b	HTTP:\ud83d\udca9c.comHTTP:\ud83d\udca9	http://xn--c-wb3s.comhttp/:\ud83d\udca9
+r	//a/b	HTTP:\ud83d\udca9c.comHTTP:\ud83d\udca9	E:ERR_INVALID_ARG_VALUE
 r	foo:a/b	?`%zz}\u200d#	foo:a/b?%60%zz%7D\u200d#
 r	http://a.com	}	http://a.com/%7D
 r	file:///a/b	\u200d=/	file:///a/\u200d=/
@@ -12570,7 +12570,7 @@ r	http://a.com	\u005cc.comfile:	http://a.com/c.comfile:
 r	file://host/a/b	ws:ws:file:+xn--::1	ws://ws:file:+xn--::1/
 r	8080 .\ud83d\udca9\u005c//	\u3000\u05d0? ]	8080%20.\ud83d\udca9///\u3000\u05d0?%20]
 r	file://host/a/b	[>	file://host/a/[%3E
-r	foo:a/b	mailto:http:]=xn--	mailto:http/:]=xn--
+r	foo:a/b	mailto:http:]=xn--	E:ERR_INVALID_ARG_VALUE
 r	mailto:local1@domain1	\u000a\u0628	mailto:local1@\u0628
 r	http://[::1]/a	+/%41	http://[::1]/+/%41
 r	/a/b/c	{\u005c	/a/b/%7B/
@@ -12691,7 +12691,7 @@ r	foo:a/b	//`:	foo:///%60:
 r	?q	=mailto:	=mailto:
 r	foo://a/b	ws:|\u00a0	ws://%7C/
 r	https://a.com/b	http:;\u4e2d//&\u0628	http://;\u4e2d/&\u0628
-r	foo://a/b	..mailto:aws:\u05d0	..mailto:aws/:\u05d0
+r	foo://a/b	..mailto:aws:\u05d0	E:ERR_INVALID_ARG_VALUE
 r	http://user:pw@a.com:81/b?x#y	\u0130'	http://user:pw@a.com:81/\u0130%27
 r	http://a.com/b/c/	 \u005cHTTP:\u4e2dws:	http://a.com/HTTP:\u4e2dws:
 r	mailto:a@b/c	]##\ud800	mailto:a@b/]##\ud800
@@ -12715,7 +12715,7 @@ r		\u0628	\u0628
 r	xn--fiq228c\u3000`mailto:^\u4e2d	+\ud800.&	+\ud800.&
 r	foo:a/b	\u0009	foo:a/b
 r	http://a/b/c/d;p?q	+%zzc.com	http://a/b/c/+%zzc.com
-r	http://a.com/b/c	HTTP:foo:ws:\u200da	http://foo/:ws:\u200da
+r	http://a.com/b/c	HTTP:foo:ws:\u200da	E:ERR_INVALID_ARG_VALUE
 r	#x	\u000a\u000a\u0301\ufeff\ud83d\udca9	\u0301\ufeff\ud83d\udca9
 r	file://host/a/b	\u0628mailto:\u00e9	file://host/a/\u0628mailto:\u00e9
 r	/a/b/c	]]	/a/b/]]
@@ -12737,7 +12737,7 @@ r	/a/b/c	\u0009a	/a/b/a
 r		'a&	%27a&
 r	http://a.com/b/c	|8080\u0628ws:	http://a.com/b/%7C8080\u0628ws:
 r	https://a.com/b	%zz;	https://a.com/%zz;
-r	https://a.com/b	..mailto:ws:=B	..mailto:ws/:=B
+r	https://a.com/b	..mailto:ws:=B	E:ERR_INVALID_ARG_VALUE
 r	http://a.com/b/c/	=::1	http://a.com/b/c/=::1
 r	http://a.com/b/c/	\u0301{+#&/	http://a.com/b/c/\u0301%7B+#&/
 r	a/b/c	mailto:8080\u005c	mailto:8080/
@@ -12761,7 +12761,7 @@ r	/a/b/c	/.8080a	/.8080a
 r	foo://a/b	//&+[	E:ERR_INVALID_URL
 r	http://a.com/b/c	.//\u00df"ws:xn--fiq228c	http://a.com/b//\u00df%22ws:xn--fiq228c
 r	http://user:pw@a.com:81/b?x#y	'#\ufeff{B<	http://user:pw@a.com:81/%27#\ufeff%7BB%3C
-r	https://a.com/b	HTTP:javascript:\u4e2d	http://javascript/:\u4e2d
+r	https://a.com/b	HTTP:javascript:\u4e2d	E:ERR_INVALID_ARG_VALUE
 r	http://[::1]/a	;\u200d#\u0628mailto:	http://[::1]/;\u200d#\u0628mailto:
 r	foo:a/b	8080\u00df	foo:a/8080\u00df
 r	mailto:local1@domain1	"?\u0301@	mailto:local1@%22?\u0301@
@@ -12873,7 +12873,7 @@ r	?q	\u05d0[/	\u05d0[/
 r	mailto:a@b/c	=:	mailto:a@b/=:
 r	http://a.com/b/c/	\ud83d\udca9\u05d0%zz\u00df	http://a.com/b/c/\ud83d\udca9\u05d0%zz\u00df
 r	a/b/c	%C3%A9#. \u05d0	a/b/%C3%A9#.%20\u05d0
-r	mailto:a@b/c	//xn--[\u05d0::1	E:ERR_INVALID_URL
+r	mailto:a@b/c	//xn--[\u05d0::1	E:ERR_INVALID_ARG_VALUE
 r	file://host/a/b	\u200d	file://host/a/\u200d
 r	mailto:local1@domain1	\u005c:	mailto:/:
 r	http://a.com/b/c/	.mailto:%C3%A9\u4e2d	.mailto:%C3%A9\u4e2d
@@ -12960,7 +12960,7 @@ r	foo://a/b	"\u0628	foo://a/%22\u0628
 r	http://user:pw@a.com:81/b?x#y	\u4e2dhttps:	http://user:pw@a.com:81/\u4e2dhttps:
 r	foo:a/b	&#%41=\u0009	foo:a/&#%41=
 r	javascript:x	1.2.3.4xn--fiq228c^	javascript:1.2.3.4xn--fiq228c%5E
-r	http://user:pw@a.com:81/b?x#y	\u0009foo:..\u0628mailto:file:	E:ERR_INVALID_URL
+r	http://user:pw@a.com:81/b?x#y	\u0009foo:..\u0628mailto:file:	E:ERR_INVALID_ARG_VALUE
 r	#x	foo:@	foo:
 r	file:///a/b	\ud83d\udca9foo:\u0301> =	file:///a/\ud83d\udca9foo:\u0301%3E%20=
 r	//a/b	https:\ud800	https://\ud800/
@@ -13211,7 +13211,7 @@ r	\u0301}\u0301%	?%41@http:	\u0301%7D\u0301%?%41@http:
 r	https://a.com/b	<{;\u4e2d`	https://a.com/%3C%7B;\u4e2d%60
 r	//a/b	https:/file:http:`\u200d	https://file:http:%60\u200d/
 r	file:///a/b	\u00e91.2.3.4=\u00a0javascript:	file:///a/\u00e91.2.3.4=\u00a0javascript:
-r	http://a.com/b/c/	//http:\u00df\u00a0>	http://http/:\u00df\u00a0%3E
+r	http://a.com/b/c/	//http:\u00df\u00a0>	E:ERR_INVALID_ARG_VALUE
 r	a/b/c	]c.com8080	a/b/]c.com8080
 r	#x	\ufeff=}@	=%7D@
 r	#x	//}\u005c	///%7D/

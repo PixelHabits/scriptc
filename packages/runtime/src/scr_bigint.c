@@ -1098,7 +1098,7 @@ ScrBigInt *scr_bigint_shr(ScrBigInt *a, ScrBigInt *count) { return bi_shift(a, c
 
 ScrBigInt *scr_bigint_pow(ScrBigInt *a, ScrBigInt *b) {
   if (b->sign < 0) {
-    static const char msg[] = "undefined must be positive";
+    static const char msg[] = "Exponent must be positive";
     scr_throw_error_msg(SCR_ERR_RANGE, msg, sizeof msg - 1);
     return NULL;
   }

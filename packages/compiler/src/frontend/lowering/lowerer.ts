@@ -293,6 +293,7 @@ import {
   isCheckerPanic,
   genericSignatureTypeDiag,
   hostGlobalDiag,
+  temporalNativeDiag,
   indexSignatureTypeDiag,
   intersectionTypeDiag,
   noLoweringDiag,
@@ -12378,6 +12379,11 @@ export class Lowerer {
    * lets a Node island run the module instead. */
   hostGlobalFence(name: string, node: ts.Node): never {
     this.pushDiag(hostGlobalDiag(name, locOf(node)));
+    throw new PoisonError();
+  }
+
+  temporalFence(node: ts.Node): never {
+    this.pushDiag(temporalNativeDiag(locOf(node)));
     throw new PoisonError();
   }
 

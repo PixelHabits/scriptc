@@ -33,6 +33,7 @@ export function expectedTranscript(pin = readPin(), abi = bridgeAbi()) {
     `process.versions.node => R"${pin.nodeVersion}"`,
     "process.config.variables.node_use_node_snapshot => Rtrue",
     `process.config.variables.icu_small => R${icuSmall}`,
+    `Temporal.PlainDate.from('2026-01-31').add({ months: 1 }).toString() => R"2026-02-28"`,
     `new Intl.NumberFormat('de-DE').format(1234567.891) => R"${icuSmall ? "1,234,567.891" : "1.234.567,891"}"`,
     `new Intl.DateTimeFormat('ja-JP', { timeZone: 'UTC', dateStyle: 'full' }).format(0) => R"${icuSmall ? "Thursday, January 1, 1970" : "1970年1月1日木曜日"}"`,
     `require('node:crypto').createHash('sha256').update('scriptc').digest('hex') => R"${sha256Hex("scriptc")}"`,

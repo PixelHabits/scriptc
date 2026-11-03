@@ -5680,26 +5680,31 @@ static bool scr_loop_run_ticks(void) {
 
 /* The checkpoint after a macrotask callback (processTicksAndRejections):
  * ticks to exhaustion, then promise jobs to exhaustion, and back while
- * either has work. false: a tick threw (uncaught, pending). */
-static bool scr_loop_run_checkpoint(void) {
+ * either has work. false: a callback threw or the module verdict failed. */
+static bool scr_loop_run_checkpoint(ScrPromise *top_level, bool *microtasks_first) {
   while (scr_nt_head != NULL || scr_ready_len > 0) {
     if (!scr_loop_run_ticks()) return false;
+    *microtasks_first = true;
     while (scr_ready_len > 0) {
       ScrFiber *f = scr_ready[scr_ready_head++];
       scr_ready_len--;
       SCR_RESUME_JOB(f);
+      if (scr_exc_pending()) return false;
+      if (top_level != NULL && top_level->state == SCR_PROM_REJECTED) return false;
     }
+    *microtasks_first = false;
   }
   return true;
 }
 
-static bool scr_loop_run_pass(ScrPromise *top_level, bool first_checkpoint) {
+static bool scr_loop_run_pass(ScrPromise *top_level, bool *microtasks_first) {
   /* The FIRST checkpoint after the synchronous main body runs promise
    * jobs BEFORE the first tick drain: Node's main-module evaluation is
    * itself awaited (the runMain continuation is a microtask queued after
    * the body's own), so microtasks scheduled during the body beat ticks
    * scheduled during the body exactly once, at startup — differentially
-   * pinned. Every later checkpoint drains ticks first. */
+   * pinned. A handled microtask throw resumes that same drain before ticks;
+   * every fresh later checkpoint drains ticks first. */
   bool rejection_failed = false;
   for (;;) {
 #ifdef SCR_NODE_ISLANDS
@@ -5713,21 +5718,21 @@ static bool scr_loop_run_pass(ScrPromise *top_level, bool first_checkpoint) {
      * nextTick runs before the turn proceeds, but never preempts the
      * microtask queue mid-drain (V8 drains it fully). A tick's uncaught
      * throw ends the loop like any listener's (main reports it). */
-    if (!first_checkpoint && !scr_loop_run_ticks()) return false;
+    if (!*microtasks_first && !scr_loop_run_ticks()) return false;
     /* Microtasks to exhaustion (Node: promise jobs before timers). */
+    *microtasks_first = true;
     while (scr_ready_len > 0) {
       ScrFiber *f = scr_ready[scr_ready_head++];
       scr_ready_len--;
       SCR_RESUME_JOB(f);
+      if (scr_exc_pending()) return false;
+      if (top_level != NULL && top_level->state == SCR_PROM_REJECTED) break;
     }
-    first_checkpoint = false;
-    /* The ESM loader observes a rejected entry evaluation at a promise-job
-     * checkpoint and terminates before later ref'd timers or I/O can run.
-     * Wait until this checkpoint's ready queue is drained — the root's
-     * rejection handler is itself promise-job ordered — then leave through
-     * the normal teardown below. A fulfilled root deliberately does not
-     * stop the loop. */
+    /* The loader verdict is promise-job ordered. A rejected verdict stops
+     * before the remaining jobs, ticks, timers or I/O; a fulfilled one
+     * deliberately does not stop the loop. */
     if (top_level != NULL && top_level->state == SCR_PROM_REJECTED) break;
+    *microtasks_first = false;
     if (scr_nt_head != NULL) continue;
     /* Node decides unhandled rejections at the END of each complete
      * nextTick/microtask checkpoint, before advancing to timers or I/O.
@@ -6181,13 +6186,13 @@ static bool scr_loop_run_pass(ScrPromise *top_level, bool first_checkpoint) {
 #ifdef SCR_NODE_ISLANDS
         if (scr_loop_hosted != NULL) return rejection_failed;
 #endif
-        if (!scr_loop_run_checkpoint()) return false;
+        if (!scr_loop_run_checkpoint(top_level, microtasks_first)) return false;
         /* Node's runNextTicks between immediates also reports the
          * rejections the callback left before the next one runs; a
          * listener's jobs drain before the next report. */
         while (scr_nunhandled > 0 && (top_level == NULL || top_level->state != SCR_PROM_REJECTED)) {
           if (scr_report_unhandled_rejections()) return true;
-          if (!scr_loop_run_checkpoint()) return false;
+          if (!scr_loop_run_checkpoint(top_level, microtasks_first)) return false;
         }
         if (top_level != NULL && top_level->state == SCR_PROM_REJECTED) break;
       }
@@ -6221,7 +6226,29 @@ static bool scr_loop_run_pass(ScrPromise *top_level, bool first_checkpoint) {
 static SCR_TL bool scr_loop_cjs_entry = false;
 void scr_loop_commonjs_entry(void) { scr_loop_cjs_entry = true; }
 
+/* Node's ESM failure crosses four promise continuations: ModuleJob.run's
+ * evaluation await, the loader import callback's await, import's promise
+ * adoption, and run_main's await. Each shares the user's microtask queue.
+ * lib/internal/modules/esm/{module_job,loader}.js and modules/run_main.js
+ * at v26.13.0 define this ordering, including for a synchronous throw. */
+static ScrPromise *scr_module_verdict(ScrPromise *evaluation) {
+  const unsigned continuation_count = 4;
+  ScrPromise *verdict = scr_promise_retain(evaluation);
+  for (unsigned i = 0; i < continuation_count; i++) {
+    ScrPromise *next = scr_promise_new();
+    scr_promise_race_join(next, verdict, scr_promise_settle_from);
+    scr_promise_release(verdict);
+    verdict = next;
+  }
+  return verdict;
+}
+
 bool scr_loop_run(ScrPromise *top_level) {
+  ScrPromise *entry_rejection = NULL;
+  if (!scr_loop_cjs_entry && scr_exc_pending())
+    entry_rejection = scr_promise_settled_common();
+  ScrPromise *evaluation = entry_rejection ? entry_rejection : top_level;
+  top_level = evaluation ? scr_module_verdict(evaluation) : NULL;
   /* The main module's body has returned: an enterWith it made ends here. */
   scr_loop_started = true;
   scr_cyc_note_event_loop();
@@ -6240,8 +6267,7 @@ bool scr_loop_run(ScrPromise *top_level) {
       break;
     }
 #endif
-    rejection_failed = scr_loop_run_pass(top_level && !top_level->top_level_handled ? top_level : NULL, first_checkpoint);
-    first_checkpoint = false;
+    rejection_failed = scr_loop_run_pass(top_level && !top_level->top_level_handled ? top_level : NULL, &first_checkpoint);
     if (scr_exc_pending()) {
       if (scr_exc_handle_uncaught(false)) continue;
       break; /* main reports the original or handler-thrown exception */
@@ -6254,6 +6280,7 @@ bool scr_loop_run(ScrPromise *top_level) {
       scr_promise_rethrow(top_level);
       if (scr_exc_handle_uncaught(true)) {
         top_level->top_level_handled = true;
+        evaluation->top_level_handled = true;
         scr_prom_observe(top_level);
         continue;
       }
@@ -6288,6 +6315,8 @@ bool scr_loop_run(ScrPromise *top_level) {
   if (scr_loop_children != NULL) scr_loop_children->teardown();
   scr_fibers_abandoned = scr_fibers_live;
   scr_note_abandoned_fibers(scr_fibers_abandoned);
+  scr_promise_release(top_level);
+  scr_promise_release(entry_rejection);
   return rejection_failed;
 }
 

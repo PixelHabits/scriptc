@@ -1196,6 +1196,26 @@ void scr_punycode_warn(bool immediate, bool report) {
   scr_str_release(message);
 }
 
+/* DEP0198 for the digest core (scr_crypto_dep0198): Node's deprecation
+ * emitter reports it once per process through process.emitWarning. */
+static SCR_TL bool scr_dep0198_warned = false;
+
+static void scr_dep0198(void) {
+  if (scr_dep0198_warned) return;
+  scr_dep0198_warned = true;
+  static const char text[] =
+      "Creating SHAKE128/256 digests without an explicit options.outputLength is deprecated.";
+  ScrStr *message = scr_str_new(text, sizeof text - 1);
+  ScrStr *code = scr_str_new("DEP0198", 7);
+  ScrDyn *w = scr_warning_new(message, "DeprecationWarning", code);
+  scr_warning_emit_deferred(w);
+  scr_dyn_release(w);
+  scr_str_release(code);
+  scr_str_release(message);
+}
+
+void scr_crypto_hash_shake_warnings(void) { scr_crypto_dep0198 = scr_dep0198; }
+
 static void scr_timer_this_fire(ScrClosure *self) {
   ScrClosure *cb = scr_box_get_ref(self->caps[0]);
   double handle = scr_timer_running_handle();

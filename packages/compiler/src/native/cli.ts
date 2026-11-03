@@ -260,7 +260,7 @@ async function main(): Promise<number> {
       if (result.error) {
         if (toolchain.target.platform === "wasi") {
           throw new Error(
-            `could not start the Node.js WASI host: ${result.error.message}; running WASI modules requires Node.js 24 or newer on PATH; use scriptc build to compile without Node`,
+            `could not start the Node.js WASI host: ${result.error.message}; running WASI modules requires Node.js 26.13.0 or newer on PATH; use scriptc build to compile without Node`,
           );
         }
         throw new Error(result.error.message);

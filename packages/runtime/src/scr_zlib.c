@@ -897,6 +897,7 @@ static void scr_zlib_async_submit(int mode, const ScrBytes *data, ScrZlibOptions
                                   ScrClosure *cb, ScrZlibBytesFn fn, ScrPromise *promise) {
   SCR_BYTES_SNAPSHOT(data);
   ScrZlibOptions o = *o_;
+  if (o.set_source_size) o.set_source_size(o.codec_state, data->len);
   ScrZlibOptsOp *op = calloc(1, sizeof *op);
   if (!op) scr_zlib_oom();
   op->eng = scr_zlib_engine_from_options(mode, &o);

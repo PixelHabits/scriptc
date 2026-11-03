@@ -5,7 +5,7 @@
 //      source tarball, SHA-256 verified, configured `--shared` with full ICU,
 //      only the `libnode` target built, stripped, staged with its headers
 //      and LICENSE in a cache directory keyed by libnodeCacheKey(). A cache
-//      hit skips the Node build entirely (about 26 minutes on 8 cores).
+//      hit skips the Node build entirely.
 //   2. the bridge, compiled against those headers (seconds, every run);
 //   3. the pack: libnode, the bridge, Node's LICENSE and manifest.json in
 //      packages/libnode-<platform>/, plus `--compress` copies (.zst) of both
@@ -21,7 +21,7 @@
 //                              build in (seeds the cache from an earlier build tree)
 //   SCRIPTC_LIBNODE_TOOLCHAIN  a name for the toolchain, part of the cache key
 //                              (CI: "manylinux_2_28-gcc14", "macos-15-clang")
-//   SCRIPTC_LIBNODE_JOBS       ninja parallelism (default: available cores)
+//   SCRIPTC_LIBNODE_JOBS       ninja parallelism (default: available cores); zstd uses at most 4
 //   CC, CXX                    the compilers for Node and the bridge
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -50,6 +50,8 @@ import {
   readPin,
   repoRoot,
 } from "./pin.mjs";
+
+const jobs = process.env.SCRIPTC_LIBNODE_JOBS ?? String(availableParallelism());
 
 function log(message) {
   process.stdout.write(`libnode: ${message}\n`);
@@ -148,7 +150,6 @@ function buildLibnode(tree, stage, platform, pin) {
       throw new Error(`config.gypi does not have ${setting}: ${expected}`);
     }
   }
-  const jobs = process.env.SCRIPTC_LIBNODE_JOBS ?? String(availableParallelism());
   run("ninja", ["-C", join(tree, "out", "Release"), "-j", jobs, "libnode"]);
   const buildSeconds = Math.round((Date.now() - started) / 1000);
 
@@ -224,7 +225,15 @@ function compress(pack, names, out) {
   for (const name of [names.libnode, names.bridge]) {
     const target = join(out, `${name}.zst`);
     const started = Date.now();
-    run("zstd", ["-19", "-T0", "-q", "-f", join(pack, name), "-o", target]);
+    run("zstd", [
+      "-19",
+      `-T${Math.min(Number(jobs), 4)}`,
+      "-q",
+      "-f",
+      join(pack, name),
+      "-o",
+      target,
+    ]);
     sizes[name] = { zstdBytes: statSync(target).size, seconds: (Date.now() - started) / 1000 };
   }
   return sizes;

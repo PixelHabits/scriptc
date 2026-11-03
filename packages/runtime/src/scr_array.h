@@ -776,7 +776,7 @@ struct ScrClosure;
  * orders descending, and `key` reads key j of an element (element, j ->
  * number). */
 void scr_arr_sort_values(ScrArr *a, double count, struct ScrClosure *f, uint32_t arity,
-                         int32_t order, struct ScrClosure *key);
+                         int32_t order, struct ScrClosure *key, bool copy);
 /* Comparator sort of a dense array in place: `a.sort(f)`, or with `owned`
  * the private copy of `a.toSorted(f)`. Returns false without calling `f`
  * when `a` has holes, storage-level undefined or a sparse tail, or is
@@ -795,7 +795,7 @@ bool scr_arr_sort_dense(ScrArr *a, struct ScrClosure *f, uint32_t arity, bool ow
  * failure; `values` is then unchanged, and it holds every slot exactly once,
  * in its original order, whenever `less` runs. */
 typedef bool (*ScrSortLess)(void *ctx, uint64_t x, uint64_t y, bool *failed);
-bool scr_sort_slots_with(uint64_t *values, size_t n, ScrSortLess less, void *ctx);
+bool scr_sort_slots_with(uint64_t *values, size_t n, ScrSortLess less, void *ctx, bool copy);
 
 /* pop traps on an empty array; _ref transfers ownership out (+1 to the
  * caller, no release). */

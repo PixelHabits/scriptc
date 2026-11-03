@@ -46,7 +46,6 @@ import { isIslandImportBinding } from "./lower-node-island.js";
 import type { FileParts } from "./lower-modules.js";
 import { isCjsJsFile, isJsSourceFile, locOf, resolveImport } from "../program.js";
 import { F64, type IrExpr, type IrStmt, type IrType, STRING } from "../../ir/ir.js";
-import { TEMPORAL_GLOBAL } from "../builtin-modules.js";
 
 /** True when this module declaration produces NO runtime construct at all:
  * ambient (`declare namespace/module`, `declare global`, string-named
@@ -500,7 +499,7 @@ export function ambientUndefVarRootOf(lowerer: Lowerer, e: ts.Expression): ts.Id
     const sym = lowerer.resolveValueSymbol(root);
     if (!sym) return null;
     if (lowerer.trapBindings.has(sym)) return root;
-    if (lowerer.isStdlibSymbol(sym)) return isTemporalGlobalRoot(lowerer, root, sym) ? root : null;
+    if (lowerer.isStdlibSymbol(sym)) return null;
     if (ambientUndefinedFnSymbolOf(lowerer, root) !== null) return root;
     const decls = sym.declarations;
     if (decls.length === 0) return null;
@@ -513,24 +512,6 @@ export function ambientUndefVarRootOf(lowerer: Lowerer, e: ts.Expression): ts.Id
   } finally {
     lowerer.collecting = wasCollecting;
   }
-}
-
-/** True when `ident` reads the ESNext temporal global, which the program
- * type-checks against TS 7's lib slice (program.ts adds it only to programs
- * that name it) but Node 24 does not define: Node's read throws the
- * catchable ReferenceError "<name> is not defined", so every chain rooted
- * here lowers to that throw (typeof answers "undefined" in lower-exprs). */
-export function isTemporalGlobalRoot(
-  lowerer: Lowerer,
-  ident: ts.Identifier,
-  sym: ts.Symbol | undefined | null,
-): boolean {
-  return (
-    ident.text === TEMPORAL_GLOBAL &&
-    sym !== undefined &&
-    sym !== null &&
-    lowerer.isStdlibSymbol(sym)
-  );
 }
 
 /** The declaration-classification form of ambientUndefVarRootOf: the root
@@ -985,12 +966,7 @@ export function lowerImportEquals(
     const refSym = lowerer.checker.getSymbolAtLocation(stmt.moduleReference);
     if (refSym) fenceCrossBlockNsRef(lowerer, stmt.moduleReference, refSym);
   }
-  // Node's transform ALWAYS emits `var x = <entity>` — it never elides
-  // type-only aliases the way tsc's emit does — so an alias whose entity
-  // ROOT names an uninstantiated (type-only or ambient) namespace throws
-  // ReferenceError AT THIS STATEMENT under the oracle. Reproduce it
-  // exactly: the statement lowers to the undefRead throw and nothing
-  // after it in this module's init runs, just like Node.
+  // Aliases of uninstantiated namespaces have no runtime binding to capture.
   {
     let root: ts.Node = stmt.moduleReference;
     while (ts.isQualifiedName(root)) root = root.left;
@@ -1000,7 +976,8 @@ export function lowerImportEquals(
         rootSym = lowerer.checker.getAliasedSymbol(rootSym);
       }
       const kind = rootSym ? nsSymbolRuntimeKind(lowerer, rootSym) : null;
-      if (kind === "typeOnly" || kind === "ambient") {
+      if (kind === "typeOnly") return null;
+      if (kind === "ambient") {
         const loc = locOf(stmt);
         return {
           kind: "exprStmt",

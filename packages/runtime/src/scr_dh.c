@@ -1,7 +1,7 @@
 /* node:crypto DiffieHellman over the vendored mbedTLS bignum arithmetic:
  * crypto.createDiffieHellman, crypto.getDiffieHellman and
  * crypto.createDiffieHellmanGroup. A DiffieHellman or DiffieHellmanGroup
- * is a native dyn handle. Construction follows Node 24's
+ * is a native dyn handle. Construction follows Node's
  * lib/internal/crypto/diffiehellman.js argument handling and
  * src/crypto/crypto_dh.cc; key generation, verifyError, the public key
  * range check and computeSecret follow the OpenSSL 3 paths of
@@ -144,18 +144,18 @@ static void sd_operation_failed(const char *message) {
   sd_throw(SCR_ERR_ERROR, "ERR_CRYPTO_OPERATION_FAILED", message);
 }
 
-/* An OpenSSL DH error as ThrowCryptoError reports it: the formatted
- * message plus own library, reason and code properties, in Node's key
- * order. */
-static void sd_throw_openssl(const char *packed, const char *reason, const char *code) {
+/* An OpenSSL error as ThrowCryptoError or a crypto job reports it: the
+ * formatted message plus own library, reason and code properties, in
+ * Node's key order. */
+static void sd_throw_openssl(const char *packed, const char *library, const char *reason, const char *code) {
   char message[96];
-  snprintf(message, sizeof message, "error:%s:Diffie-Hellman routines::%s", packed, reason);
+  snprintf(message, sizeof message, "error:%s:%s::%s", packed, library, reason);
   ScrStr *text = scr_str_new(message, strlen(message));
   ScrError *e = scr_error_new(SCR_ERR_ERROR, text);
   scr_str_release(text);
-  ScrStr *library = scr_str_new("Diffie-Hellman routines", 23);
-  scr_error_set_prop(e, "library", 7, scr_dyn_new_str(library));
-  scr_str_release(library);
+  ScrStr *library_text = scr_str_new(library, strlen(library));
+  scr_error_set_prop(e, "library", 7, scr_dyn_new_str(library_text));
+  scr_str_release(library_text);
   ScrStr *reason_text = scr_str_new(reason, strlen(reason));
   scr_error_set_prop(e, "reason", 6, scr_dyn_new_str(reason_text));
   scr_str_release(reason_text);
@@ -167,7 +167,7 @@ static void sd_throw_openssl(const char *packed, const char *reason, const char 
 }
 
 static void sd_bad_generator(void) {
-  sd_throw_openssl("02800065", "bad generator", "ERR_OSSL_DH_BAD_GENERATOR");
+  sd_throw_openssl("02800065", "Diffie-Hellman routines", "bad generator", "ERR_OSSL_DH_BAD_GENERATOR");
 }
 
 static void sd_too_long(void) {
@@ -890,7 +890,7 @@ static bool sd_is_encoding(const ScrDyn *value) {
 /* new DiffieHellman(primeLength, generator): generated parameters. */
 static ScrDyn *sd_generate(double bits, const ScrBytes *generator_bytes, double generator) {
   if (bits < 2) {
-    sd_throw_openssl("0280007E", "modulus too small", "ERR_OSSL_DH_MODULUS_TOO_SMALL");
+    sd_throw_openssl("0280007E", "Diffie-Hellman routines", "modulus too small", "ERR_OSSL_DH_MODULUS_TOO_SMALL");
     return NULL;
   }
   if (generator_bytes) {
@@ -1069,17 +1069,6 @@ static void sd_prime_too_long(const char *what) {
   scr_throw_error_msg_code(SCR_ERR_ERROR, message, n < 0 ? 0 : (size_t)n, "SC2020");
 }
 
-/* An OpenSSL bignum error as a crypto job reports it: an Error with the
- * formatted message and no other properties. */
-static void sd_throw_bignum(const char *packed, const char *reason) {
-  char message[96];
-  int n = snprintf(message, sizeof message, "error:%s:bignum routines::%s", packed, reason);
-  ScrStr *text = scr_str_new(message, n < 0 ? 0 : (size_t)n);
-  ScrError *e = scr_error_new(SCR_ERR_ERROR, text);
-  scr_str_release(text);
-  scr_throw_obj(e, &scr_error_retain_v, &scr_error_release_v, scr_error_trace_arg());
-}
-
 /* validateObject(value, name): an object that is neither null nor an
  * array. */
 static bool sd_validate_object(const char *name, const ScrDyn *value) {
@@ -1250,11 +1239,11 @@ static bool sd_probable_prime(ScDhSmallPrimes *t, mbedtls_mpi *rnd, size_t bits,
  * p ≡ 11 (mod 12), which every safe prime above 7 satisfies. */
 static bool sd_generate_prime(mbedtls_mpi *p, size_t bits, bool safe, const mbedtls_mpi *add, const mbedtls_mpi *rem) {
   if (bits < 2 || (!add && safe && bits < 6 && bits != 3)) {
-    sd_throw_bignum("01800076", "bits too small");
+    sd_throw_openssl("01800076", "bignum routines", "bits too small", "ERR_OSSL_BN_BITS_TOO_SMALL");
     return false;
   }
   if (add && mbedtls_mpi_cmp_int(add, 0) == 0) {
-    sd_throw_bignum("01800067", "div by zero");
+    sd_throw_openssl("01800067", "bignum routines", "div by zero", "ERR_OSSL_BN_DIV_BY_ZERO");
     return false;
   }
   if (!add && safe && bits >= 64) {

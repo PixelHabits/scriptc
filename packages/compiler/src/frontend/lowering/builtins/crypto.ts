@@ -228,11 +228,40 @@ function dynArg(lowerer: Lowerer, node: ts.Expression | undefined, loc: SrcLoc):
   return node ? lowerer.lowerExprExpecting(node, DYN) : dynUndefinedExpr(loc);
 }
 
-/** A digest name. The runtime resolves every name and alias Node 24
+/** A digest name. The runtime resolves every name and alias Node
  * accepts and throws Node's error for the others, so literals are not
  * checked here. */
 function cryptoAlgorithm(lowerer: Lowerer, node: ts.Expression): IrExpr {
   return lowerer.lowerExprExpecting(node, STRING);
+}
+
+/** A digest created without outputLength reports DEP0198 when its
+ * algorithm names SHAKE128 or SHAKE256, compared lowercased with the first
+ * '-' removed. The report links the dyn-async unit, so `call` is preceded
+ * by its connection only when the algorithm's type admits such a name. */
+function withShakeWarnings(
+  lowerer: Lowerer,
+  algorithm: ts.Expression,
+  call: IrExpr,
+  loc: SrcLoc,
+): IrExpr {
+  const values = stringLiteralValues(lowerer.typeOf(algorithm));
+  const shake = (value: string) => /^shake(128|256)$/.test(value.toLowerCase().replace("-", ""));
+  if (values && !values.some(shake)) return call;
+  const connect: IrExpr = {
+    kind: "libCall",
+    fn: "crypto.hashShakeWarnings",
+    args: [],
+    type: VOID,
+    loc,
+  };
+  return {
+    kind: "seqExpr",
+    stmts: [{ kind: "exprStmt", expr: connect, loc }],
+    result: call,
+    type: call.type,
+    loc,
+  };
 }
 
 function cryptoKdfInput(lowerer: Lowerer, node: ts.Expression): IrExpr {
@@ -375,16 +404,17 @@ export function lowerCryptoModuleCall(
       );
     }
     const algorithm = cryptoAlgorithm(lowerer, args[0]!);
-    if (args.length === 1) {
-      return { kind: "libCall", fn: "crypto.hashNew", args: [algorithm], type: CRYPTOHASH_T, loc };
-    }
-    return {
-      kind: "libCall",
-      fn: "crypto.hashNewOpts",
-      args: [algorithm, lowerer.lowerExprExpecting(args[1]!, DYN)],
-      type: CRYPTOHASH_T,
-      loc,
-    };
+    const call: IrExpr =
+      args.length === 1
+        ? { kind: "libCall", fn: "crypto.hashNew", args: [algorithm], type: CRYPTOHASH_T, loc }
+        : {
+            kind: "libCall",
+            fn: "crypto.hashNewOpts",
+            args: [algorithm, lowerer.lowerExprExpecting(args[1]!, DYN)],
+            type: CRYPTOHASH_T,
+            loc,
+          };
+    return withShakeWarnings(lowerer, args[0]!, call, loc);
   }
   if (bi.member === "createCipheriv" || bi.member === "createDecipheriv") {
     const algorithm = args[0];
@@ -499,21 +529,31 @@ export function lowerCryptoModuleCall(
       const encoding: IrExpr = options
         ? lowerer.lowerExprExpecting(options, STRING)
         : { kind: "strLit", value: "hex", type: STRING, loc };
-      return {
-        kind: "libCall",
-        fn: data.type.kind === "string" ? "crypto.hashDigestStr" : "crypto.hashDigestBytes",
-        args: [algorithm, cryptoByteView(lowerer, args[1]!, data), encoding],
-        type: STRING,
+      return withShakeWarnings(
+        lowerer,
+        args[0]!,
+        {
+          kind: "libCall",
+          fn: data.type.kind === "string" ? "crypto.hashDigestStr" : "crypto.hashDigestBytes",
+          args: [algorithm, cryptoByteView(lowerer, args[1]!, data), encoding],
+          type: STRING,
+          loc,
+        },
         loc,
-      };
+      );
     }
-    return {
-      kind: "libCall",
-      fn: "crypto.hashOneshot",
-      args: [algorithm, lowerer.coerceInto(args[1]!, data, DYN), dynArg(lowerer, options, loc)],
-      type: DYN,
+    return withShakeWarnings(
+      lowerer,
+      args[0]!,
+      {
+        kind: "libCall",
+        fn: "crypto.hashOneshot",
+        args: [algorithm, lowerer.coerceInto(args[1]!, data, DYN), dynArg(lowerer, options, loc)],
+        type: DYN,
+        loc,
+      },
       loc,
-    };
+    );
   }
   if (bi.member === "timingSafeEqual") {
     if (args.length < 1 || args.length > 2 || args.some(ts.isSpreadElement))

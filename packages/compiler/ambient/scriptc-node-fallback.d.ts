@@ -1,3 +1,5 @@
+/// <reference path="./node-fallback/buffer.d.ts" />
+
 /* The FALLBACK Node-ish declarations — shipped into the program ONLY when
  * the target project has no @types/node (see loadProgram): console, the
  * process global, and the "node:fs" module, typed as exactly the supported
@@ -26,7 +28,36 @@
 declare namespace NodeJS {
   interface ProcessVersions {
     readonly node: string;
-    readonly openssl?: string;
+    readonly acorn: string;
+    readonly ada: string;
+    readonly amaro: string;
+    readonly ares: string;
+    readonly brotli: string;
+    readonly cldr: string;
+    readonly icu: string;
+    readonly libffi: string;
+    readonly lief: string;
+    readonly llhttp: string;
+    readonly merve: string;
+    readonly modules: string;
+    readonly napi: string;
+    readonly nbytes: string;
+    readonly ncrypto: string;
+    readonly nghttp2: string;
+    readonly nghttp3: string;
+    readonly ngtcp2: string;
+    readonly openssl: string;
+    readonly simdjson: string;
+    readonly simdutf: string;
+    readonly sqlite: string;
+    readonly tz: string;
+    readonly undici: string;
+    readonly unicode: string;
+    readonly uv: string;
+    readonly uvwasi: string;
+    readonly v8: string;
+    readonly zlib: string;
+    readonly zstd: string;
     readonly [name: string]: string | undefined;
   }
   /* The process introspection records — named interfaces so the type
@@ -230,6 +261,7 @@ declare module "console" {
  * (`kill ESRCH`/`kill EPERM` Errors, TypeErrors for unknown signals and
  * non-int32 pids). */
 declare var process: {
+  getBuiltinModule(id: "buffer" | "node:buffer"): typeof import("node:buffer");
   getBuiltinModule(id: string): unknown;
   hrtime: {
     (time?: [number, number]): [number, number];
@@ -821,10 +853,24 @@ interface Crypto {
   randomUUID(): `${string}-${string}-${string}-${string}-${string}`;
 }
 
-/* Capability-gated globals harness code probes behind feature guards
- * (the SQLite-backed storage pair): typed `unknown` — no lowering exists,
- * the guard is expected to be false in a compiled binary, and any reached
- * use fences per site. */
+/* Constructors whose values support probes; native construction refuses. */
+declare var ErrorEvent: {
+  readonly name: string;
+  readonly length: number;
+  readonly prototype: unknown;
+};
+declare var Storage: {
+  readonly name: string;
+  readonly length: number;
+  readonly prototype: unknown;
+};
+declare var QuotaExceededError: {
+  readonly name: string;
+  readonly length: number;
+  readonly prototype: unknown;
+};
+
+/* Web Storage values are present; unsupported operations refuse at use. */
 declare var localStorage: unknown;
 declare var sessionStorage: unknown;
 
@@ -860,7 +906,19 @@ interface Buffer<
   ): number;
   indexOf(
     value: string | number | Uint8Array,
+    start?: number,
+    end?: number,
+    encoding?: BufferEncoding,
+  ): number;
+  indexOf(
+    value: string | number | Uint8Array,
     byteOffset?: number | BufferEncoding,
+    encoding?: BufferEncoding,
+  ): number;
+  lastIndexOf(
+    value: string | number | Uint8Array,
+    start?: number,
+    end?: number,
     encoding?: BufferEncoding,
   ): number;
   lastIndexOf(
@@ -869,7 +927,13 @@ interface Buffer<
     encoding?: BufferEncoding,
   ): number;
   includes(
-    value: string | number | Buffer,
+    value: string | number | Uint8Array,
+    start?: number,
+    end?: number,
+    encoding?: BufferEncoding,
+  ): boolean;
+  includes(
+    value: string | number | Uint8Array,
     byteOffset?: number | BufferEncoding,
     encoding?: BufferEncoding,
   ): boolean;
@@ -879,7 +943,12 @@ interface Buffer<
     end?: number | BufferEncoding,
     encoding?: BufferEncoding,
   ): this;
-  copy(target: Uint8Array, targetStart?: number, sourceStart?: number, sourceEnd?: number): number;
+  copy(
+    target: ArrayBufferView,
+    targetStart?: number,
+    sourceStart?: number,
+    sourceEnd?: number,
+  ): number;
   swap16(): Buffer;
   swap32(): Buffer;
   swap64(): Buffer;
@@ -1570,8 +1639,10 @@ declare var URL: {
 /* URLSearchParams — the WHATWG application/x-www-form-urlencoded list.
  * Constructed standalone (string / string[][] pairs / inline record
  * literal / another URLSearchParams) or read live off a URL via
- * url.searchParams. keys()/values()/entries() lower when a for-of head
- * consumes them directly; stored iterator OBJECTS have no lowering. */
+ * url.searchParams. Iterators walk the live list through native handles. */
+interface URLSearchParamsIterator<T> extends IterableIterator<T> {
+  [Symbol.iterator](): URLSearchParamsIterator<T>;
+}
 interface URLSearchParams {
   readonly size: number;
   append(name: string, value: string): void;
@@ -1586,10 +1657,10 @@ interface URLSearchParams {
     callback: (value: string, name: string, searchParams: URLSearchParams) => void,
     thisArg?: unknown,
   ): void;
-  keys(): IterableIterator<string>;
-  values(): IterableIterator<string>;
-  entries(): IterableIterator<[string, string]>;
-  [Symbol.iterator](): IterableIterator<[string, string]>;
+  keys(): URLSearchParamsIterator<string>;
+  values(): URLSearchParamsIterator<string>;
+  entries(): URLSearchParamsIterator<[string, string]>;
+  [Symbol.iterator](): URLSearchParamsIterator<[string, string]>;
 }
 declare var URLSearchParams: {
   new (init?: string | string[][] | { [key: string]: string } | URLSearchParams): URLSearchParams;

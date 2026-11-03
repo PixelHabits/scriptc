@@ -1,3 +1,4 @@
+import { fenceTemporalMemberUse, isTemporalValue, temporalValue } from "./temporal.js";
 import type { DiagnosticCode } from "../../diagnostics/codes.js";
 import {
   arrayClassMemberOwner,
@@ -303,6 +304,9 @@ function lowerExprInner(lowerer: Lowerer, expr: ts.Expression): IrExpr {
   // enclosing optChain — read the bind temp instead of re-lowering.
   const chainRecv = lowerer.chainRecvByNode.get(expr);
   if (chainRecv) return { ...chainRecv, loc };
+
+  fenceTemporalMemberUse(lowerer, expr);
+  if (isTemporalValue(lowerer, expr)) return temporalValue(loc);
 
   // Node islands (scope-B NI-4): member operations on island values and
   // island import bindings. Programs without islands skip it.

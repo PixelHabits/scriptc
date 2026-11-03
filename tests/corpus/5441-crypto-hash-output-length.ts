@@ -1,3 +1,4 @@
+// @normalize-pid
 // XOF output lengths through createHash, copy and crypto.hash, Node's
 // errors for the outputLength option, and typed encodings and views in
 // TypeScript.

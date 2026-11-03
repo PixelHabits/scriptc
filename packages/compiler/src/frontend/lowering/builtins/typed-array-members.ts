@@ -1,4 +1,4 @@
-/* The members Node 24 gives typed arrays and Buffers: every string-keyed
+/* The members Node gives typed arrays and Buffers: every string-keyed
  * property name on their prototype chains (Object.getOwnPropertyNames of
  * each prototype), Object.prototype included. A typed array or Buffer in a
  * compiled program is always one of these built-in kinds (programs cannot
@@ -152,6 +152,8 @@ const BUFFER_PROTOTYPE = new Set<string>([
  * member `name` (true), none has it (false), or it depends on the value
  * (null): a Uint8Array may be a Buffer, whose prototype adds members. */
 export function typedArrayHasMember(name: string, mayBeBuffer: boolean): boolean | null {
+  if (mayBeBuffer && ["toBase64", "toHex", "setFromBase64", "setFromHex"].includes(name))
+    return true;
   if (name === ELEMENT_KIND_MEMBER || TYPED_ARRAY_CHAIN.has(name)) return true;
   return mayBeBuffer && BUFFER_PROTOTYPE.has(name) ? null : false;
 }

@@ -5150,8 +5150,9 @@ void scr_bytes_sort_compare(ScrBytes *b, ScrClosure *f, uint32_t arity) {
 #undef SCR_SORT_SCAN
 
 /* ── comparator sort: V8's TimSort ──────────────────────────────────────
- * Array.prototype.sort and toSorted with a comparator run V8's TimSort
- * (third_party/v8/builtins/array-sort.tq) step for step: the same minimum
+ * Comparator sorting follows third_party/v8/builtins/array-sort.tq:
+ * sort uses binary insertion below eight elements; other sorts use
+ * TimSort step for step, with the same minimum
  * run length, run detection (strictly descending runs reverse), binary
  * insertion, run-stack invariants, galloping merges and adaptive gallop
  * threshold. Every comparison is `f(x, y) < 0` with V8's argument order, so
@@ -5716,7 +5717,7 @@ static void scr_sort_buffer_give(uint64_t *buffer, size_t cap) {
  * back. Returns false when a comparator throws; `values` is then unchanged.
  * `values` holds every slot exactly once, in its original order, whenever
  * a comparator runs. */
-static bool scr_sort_copy(ScrTimSort *s, uint64_t *values, size_t n) {
+static bool scr_sort_copy(ScrTimSort *s, uint64_t *values, size_t n, bool copy) {
   size_t scratch = n / 2 + 1, cap;
   if (n > SIZE_MAX / sizeof(*s->a) - scratch) scr_arr_oom();
   s->a = scr_sort_buffer_take(n + scratch, &cap);
@@ -5726,7 +5727,8 @@ static bool scr_sort_copy(ScrTimSort *s, uint64_t *values, size_t n) {
   s->min_gallop = SCR_SORT_MIN_GALLOP;
   s->runs = 0;
   s->failed = false;
-  scr_sort_run(s, n);
+  if (!copy && n < 8) scr_sort_binary_insertion(s, 0, 0, n);
+  else scr_sort_run(s, n);
   bool ok = !s->failed;
   if (ok) memcpy(values, s->a, n * sizeof(*values));
   scr_sort_buffer_give(s->a, cap);
@@ -5735,27 +5737,25 @@ static bool scr_sort_copy(ScrTimSort *s, uint64_t *values, size_t n) {
 
 /* Sorts `n >= 2` slots with V8's TimSort through the closure comparator.
  * That keeps array storage passed here consistent for the cycle collector,
- * and lets callers release or keep the slots after an exception; `scratch`
- * is accepted for the callers' benefit, as the private copy makes it
- * unnecessary. */
+ * and lets callers release or keep the slots after an exception. `copy`
+ * selects toSorted, which keeps TimSort for short arrays too. */
 static bool scr_sort_slots(uint64_t *values, size_t n, const ScrSortCompare *cmp,
-                           bool scratch) {
-  (void)scratch;
+                           bool copy) {
   ScrTimSort s;
   s.c = *cmp;
   scr_dyn_this_push_dyn(NULL);
-  bool ok = scr_sort_copy(&s, values, n);
+  bool ok = scr_sort_copy(&s, values, n, copy);
   scr_dyn_this_pop();
   return ok;
 }
 
-bool scr_sort_slots_with(uint64_t *values, size_t n, ScrSortLess less, void *ctx) {
+bool scr_sort_slots_with(uint64_t *values, size_t n, ScrSortLess less, void *ctx, bool copy) {
   if (n < 2) return true;
   ScrTimSort s;
   memset(&s.c, 0, sizeof s.c);
   s.c.less = less;
   s.c.less_ctx = ctx;
-  return scr_sort_copy(&s, values, n);
+  return scr_sort_copy(&s, values, n, copy);
 }
 
 #ifdef SCR_SORT_TEST
@@ -5818,7 +5818,7 @@ size_t scr_sort_test_gallop_result(ptrdiff_t k, size_t length) {
  * the cycle collector and a throwing comparator both see the original
  * snapshot; the sorted permutation is published only after success. */
 void scr_arr_sort_values(ScrArr *a, double count, ScrClosure *f, uint32_t arity,
-                         int32_t order, ScrClosure *key) {
+                         int32_t order, ScrClosure *key, bool copy) {
   size_t n = (size_t)count;
   if (n < 2) return;
   if (n > a->len || n > SIZE_MAX / 2 / sizeof(uint64_t))
@@ -5830,7 +5830,7 @@ void scr_arr_sort_values(ScrArr *a, double count, ScrClosure *f, uint32_t arity,
     if (scr_arr_state_at(a, i, &src[i]) != SCR_ARR_VALUE)
       scr_trap("scriptc: invalid comparator sort snapshot\n");
   }
-  bool sorted = (order != 0 && scr_sort_keyed(src, n, &c)) || scr_sort_slots(src, n, &c, true);
+  bool sorted = (order != 0 && scr_sort_keyed(src, n, &c)) || scr_sort_slots(src, n, &c, copy);
   /* A permutation of the same owned slots: no reference count changes. */
   for (size_t i = 0; sorted && i < n; i++) {
     if (i < a->cap) {
@@ -5901,7 +5901,7 @@ bool scr_arr_sort_dense(ScrArr *a, ScrClosure *f, uint32_t arity, bool owned, in
    * it permutes a shared array's slots in place too. */
   if (order != 0 && scr_sort_keyed(a->data, n, &c)) return true;
   if (owned) {
-    scr_sort_slots(a->data, n, &c, false);
+    scr_sort_slots(a->data, n, &c, true);
     return true;
   }
   bool retained = !c.numbers;
@@ -5910,7 +5910,7 @@ bool scr_arr_sort_dense(ScrArr *a, ScrClosure *f, uint32_t arity, bool owned, in
   memcpy(src, a->data, n * sizeof(*src));
   if (retained)
     for (size_t i = 0; i < n; i++) src[i] = scr_elem_retain_with(elem, ops, src[i]);
-  if (!scr_sort_slots(src, n, &c, true)) {
+  if (!scr_sort_slots(src, n, &c, false)) {
     if (retained)
       for (size_t i = 0; i < n; i++) scr_elem_release_with(elem, ops, src[i]);
     free(src);

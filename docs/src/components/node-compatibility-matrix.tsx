@@ -192,7 +192,7 @@ export function NodeCompatibilityMatrix() {
   const verificationBases = snapshot?.verificationBases;
   const apiRowCount = useMemo(() => rows.filter((row) => row.scope === "api").length, [rows]);
   const chapterTitles = useMemo(() => new Map(chapters.map((item) => [item.slug, item.title])), [chapters]);
-  const base = `https://nodejs.org/docs/v${snapshot?.nodeVersion ?? "24.22.1"}/api/`;
+  const base = `https://nodejs.org/docs/v${snapshot?.nodeVersion ?? "26.13.0"}/api/`;
   const staticCounts = useMemo(() => statusCounts(rows), [rows]);
   const visibleStatuses = useMemo(() => statuses.filter((status) => staticCounts[status] > 0), [staticCounts]);
   const tree = useMemo(() => buildTree(rows), [rows]);
@@ -265,7 +265,7 @@ export function NodeCompatibilityMatrix() {
       <div className="shrink-0 border-b border-gray-alpha-400 bg-background-200 px-3 py-3 md:px-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="min-w-fit">
-            <h1 id="compatibility-title" className="text-lg font-semibold leading-6 text-gray-1000">Node.js 24 Compatibility</h1>
+            <h1 id="compatibility-title" className="text-lg font-semibold leading-6 text-gray-1000">Node.js 26 Compatibility</h1>
             <p className="text-xs text-gray-800">Native compilation · Node {snapshot.nodeVersion}</p>
           </div>
           <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-[minmax(240px,1fr)_auto]">
@@ -301,7 +301,7 @@ export function NodeCompatibilityMatrix() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-background-100">
-        <table role="treegrid" aria-label="Node.js 24 compatibility hierarchy" className="compatibility-table min-w-[900px]">
+        <table role="treegrid" aria-label="Node.js 26 compatibility hierarchy" className="compatibility-table min-w-[900px]">
           <thead className="sticky top-0 z-10 bg-background-200/95 backdrop-blur-sm">
             <tr><th className="w-[55%]">Node.js API hierarchy</th><th className="w-[15%] text-center">Node stability</th><th className="w-[30%]">Native support</th></tr>
           </thead>

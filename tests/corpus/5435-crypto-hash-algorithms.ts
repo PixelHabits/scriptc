@@ -1,3 +1,4 @@
+// @normalize-pid
 // Every digest crypto.getHashes() lists, one-shot and in chunks across
 // block boundaries, with copy() mid-stream and the XOFs' default lengths.
 import { createHash, getHashes, hash } from "node:crypto";

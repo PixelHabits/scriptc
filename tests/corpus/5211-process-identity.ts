@@ -17,7 +17,7 @@ console.log(process.argv0 !== "t2", process.argv0.length > 0);
 // process.release names the release behind process.version.
 const release = process.release;
 console.log(release.name, Object.keys(release));
-console.log(release.lts === undefined || release.lts === "Krypton");
+console.log(release.lts === undefined || release.lts === "Lithium");
 const base = `https://nodejs.org/download/release/${process.version}/node-${process.version}`;
 console.log(release.sourceUrl === `${base}.tar.gz`);
 console.log(release.headersUrl === `${base}-headers.tar.gz`);

@@ -3,10 +3,10 @@
  *
  * scr_webcrypto.c converts and validates the arguments, normalizes the
  * algorithm and checks the key; this unit runs the cipher itself, the way
- * Node 24's src/crypto/crypto_aes.cc does: CBC with PKCS#7 padding, CTR
+ * Node's src/crypto/crypto_aes.cc does: CBC with PKCS#7 padding, CTR
  * with a counter that wraps within its low `length` bits (and fails when
  * the input needs more blocks than those bits can count), and GCM with a
- * 12 to 128 byte IV and a 4 to 16 byte tag appended to the ciphertext.
+ * 1 to 128 byte IV and a 4 to 16 byte tag appended to the ciphertext.
  * The unit links only into programs that call these methods, alongside
  * the cipher feature's mbedTLS archive. */
 #include "scr_runtime.h"
@@ -21,7 +21,7 @@
 static ScrBytes *scr_wc_aes_gcm(bool decrypt, const unsigned char *key, size_t key_len,
                                 const ScrWebCryptoAesParams *p, const unsigned char *in,
                                 size_t len) {
-  if (p->iv_len < 12 || p->iv_len > 128) return NULL;
+  if (p->iv_len < 1 || p->iv_len > 128) return NULL;
   if (decrypt && len < p->tag_len) return NULL;
   size_t out_len = decrypt ? len - p->tag_len : len + p->tag_len;
   ScrBytes *out = scr_bytes_new(SCR_BYTES_U8, (double)out_len);

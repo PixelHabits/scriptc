@@ -254,7 +254,9 @@ typedef enum {
 /* Tags added since the last pin, by name only (see above). */
 #define SCR_DYNH_NEW_TAGS(Y) \
   Y(SEGMENTER_WORD) /* ICU word-granularity Segmenter (scr_intl.c) */ \
-  Y(SEGMENTS_WORD) /* its word segmentation result (scr_intl.c) */
+  Y(SEGMENTS_WORD) /* its word segmentation result (scr_intl.c) */ \
+  Y(SESSION_STORAGE) /* Web Storage identity (scr_node_builtin.c) */ \
+  Y(TEMPORAL) /* Temporal namespace identity (scr_node_builtin.c) */
 
 /* Values below the largest pinned one that no tag holds, each with the
  * reason. Never reuse one without removing it here. */
@@ -534,7 +536,8 @@ struct ScrDyn {
   /* A deep typed-to-dyn copy has no stable native reference identity.
    * Weak collections must refuse it instead of weakly tracking its box. */
   bool copied_from_native;
-  bool non_extensible; /* native objects and arrays; fits the header padding */
+  bool non_extensible : 1; /* native objects and arrays; fits the header padding */
+  bool module_namespace : 1;
   union {
     bool b;
     double num;
@@ -1101,6 +1104,7 @@ ScrDyn *scr_dyn_native_date_new(const ScrDyn *arguments);
 ScrDyn *scr_dyn_native_date_new_fields(const ScrDyn *arguments);
 ScrDyn *scr_dyn_native_date_new_value(const ScrDyn *arguments);
 ScrStr *scr_dyn_object_tag_of(const ScrDyn *d);
+void scr_module_namespace_throw_write(const char *key, size_t length);
 ScrDyn *scr_dyn_native_date_from_ms(double ms);
 typedef struct ScrDate ScrDate;
 ScrDyn *scr_dyn_native_date(ScrDate *date);
@@ -1754,6 +1758,9 @@ ScrDyn *scr_global_for_in_object(void);
  * navigator.language (+1), navigator.languages (+1, one frozen array per
  * thread) and navigator.platform (+1). */
 ScrDyn *scr_navigator_object(void);
+ScrDyn *scr_session_storage_object(void);
+ScrDyn *scr_temporal_object(void);
+#define SCR_TEMPORAL_NATIVE_ERROR "Temporal is not compiled natively yet"
 ScrStr *scr_navigator_language(void);
 ScrDyn *scr_navigator_languages(void);
 ScrStr *scr_navigator_platform(void);
@@ -2255,6 +2262,10 @@ typedef struct ScrDynHandleOps {
   /* A promise rejected with the pending exception (+1), for the rejects
    * methods; the owning unit supplies it, since promises are a gated unit. */
   ScrDyn *(*rejected)(void);
+  /* Reflection over native objects (+1); NULL hooks retain the refusal. */
+  ScrDyn *(*own_keys)(void *h);
+  ScrDyn *(*enumerable_keys)(void *h);
+  ScrDyn *(*own_descriptor)(void *h, const ScrStr *key);
 } ScrDynHandleOps;
 
 /* ToPrimitive hints (scr_ni_to_primitive, Node island objects). */

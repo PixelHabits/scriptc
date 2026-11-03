@@ -1,5 +1,5 @@
 /* Argument and result handling shared by the checked-dynamic node:crypto
- * key-exchange handles (scr_ecdh.c and scr_dh.c), as Node 24's
+ * key-exchange handles (scr_ecdh.c and scr_dh.c), as Node's
  * lib/internal/crypto/diffiehellman.js and lib/internal/crypto/util.js
  * read keys and encodings: getArrayBufferOrView for key inputs and
  * encode() for Buffer results. `subject` names the value in the coded

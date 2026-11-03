@@ -1,4 +1,4 @@
-import snapshot from "@/generated/node-v24-compatibility.json";
+import snapshot from "@/generated/node-v26-compatibility.json";
 
 export const dynamic = "force-static";
 export const revalidate = false;

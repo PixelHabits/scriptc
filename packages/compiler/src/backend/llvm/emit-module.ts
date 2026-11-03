@@ -666,6 +666,7 @@ export function emitModuleParts(emitter: LlEmitter): string[] {
     emitter.usesPromises ||
     emitter.ffiHasForeignCallback ||
     emitter.mod.functions.some((f) => f.async === true || f.generator !== undefined);
+  const deferredEntryException = runsLoop && emitter.mod.commonJsEntry !== true;
   const uncaughtReleases = entryMayThrow && !asyncEntry ? exitReleaseLines("gu") : [];
   const loopReleasesU = runsLoop ? exitReleaseLines("gl") : [];
   const loopReleasesR = runsLoop ? exitReleaseLines("gr") : [];
@@ -1314,12 +1315,12 @@ export function emitModuleParts(emitter: LlEmitter): string[] {
       ? [`  %top = call ptr @${mangleAsyncSpawn(emitter.mod.entry)}()`]
       : [`  call void @${mangleFunction(emitter.mod.entry)}()`]),
     // Uncaught exception from top-level code: Node exits 1.
-    ...(entryMayThrow && !asyncEntry
+    ...(entryMayThrow && !asyncEntry && !deferredEntryException
       ? [
           `  %exc = call zeroext i1 @scr_exc_pending()`,
           `  br i1 %exc, label %uncaught, label %ok`,
           `uncaught:`,
-          `  %handled = call zeroext i1 @scr_exc_handle_uncaught(i1 false)`,
+          `  %handled = call zeroext i1 @scr_exc_handle_uncaught(i1 ${emitter.mod.commonJsEntry === true ? "false" : "true"})`,
           `  br i1 %handled, label %ok, label %fatal`,
           `fatal:`,
           `  call void @scr_exc_print_uncaught()`,

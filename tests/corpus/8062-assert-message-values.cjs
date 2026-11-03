@@ -1,6 +1,6 @@
 'use strict';
 // node:assert messages that are not string literals: an untyped string, an
-// Error to throw, null/undefined (omitted) and falsy values, and
+// Error to throw, invalid message values, and
 // scalar-union operands against untyped values.
 const assert = require('assert');
 

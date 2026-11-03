@@ -1,0 +1,6 @@
+{
+ "order": [
+  "<repo>/tests/corpus/esm-uncaught-after-queued-reaction.ts"
+ ],
+ "diags": []
+}

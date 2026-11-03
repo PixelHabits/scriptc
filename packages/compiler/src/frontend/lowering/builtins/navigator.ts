@@ -1,4 +1,4 @@
-/* Node 24's `navigator` global (lib/internal/navigator.js): `typeof
+/* Node's `navigator` global (lib/internal/navigator.js): `typeof
  * navigator` is "object", `navigator.userAgent` is `Node.js/<major>` (both
  * fold to string literals; jose reads them at module load), and
  * hardwareConcurrency, language, languages and platform read the runtime's

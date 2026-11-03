@@ -1,3 +1,4 @@
+// @normalize-pid
 // Digest names are case-insensitive and include OpenSSL's provider
 // aliases and object identifiers; unknown names throw Node's errors from
 // each entry point.

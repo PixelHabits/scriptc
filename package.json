@@ -2,7 +2,7 @@
   "name": "scriptc-monorepo",
   "private": true,
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=26.13.0"
   },
   "scripts": {
     "build": "pnpm -r --filter \"./packages/*\" run build",
@@ -43,7 +43,7 @@
     "@scriptc/node": "workspace:*",
     "@scriptc/threads": "workspace:*",
     "@scriptc/types": "workspace:*",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.6",
     "effect": "3.22.2",
     "js-yaml": "4.3.2",
     "oxfmt": "0.71.0",

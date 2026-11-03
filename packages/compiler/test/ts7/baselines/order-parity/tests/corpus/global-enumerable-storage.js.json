@@ -1,0 +1,6 @@
+{
+ "order": [
+  "<repo>/tests/corpus/global-enumerable-storage.js"
+ ],
+ "diags": []
+}

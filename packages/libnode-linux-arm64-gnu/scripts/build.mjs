@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Builds @scriptc/libnode-linux-arm64-gnu: libnode for the pinned Node.js release
-// and the bridge (packages/libnode-common/scripts/build.mjs). The Node
-// build takes about half an hour on 8 cores and is cached by Node version,
-// configure flags and toolchain; only the libnode-packs workflow and an
+// and the bridge (packages/libnode-common/scripts/build.mjs). Node builds
+// are cached by Node version, configure flags and toolchain; only the
+// libnode-packs workflow and an
 // explicit `pnpm --filter @scriptc/libnode-linux-arm64-gnu build:native` run it.
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";

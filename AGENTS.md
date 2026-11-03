@@ -100,7 +100,7 @@ The Node.js compatibility system is an implementation inventory and planning too
 
 ### Sources of truth
 
-- `internal/compatibility/node-v24.json` pins the Node release, commit, official API inputs, and documentation URLs. The pinned Node API is the denominator.
+- `internal/compatibility/node-v26.json` pins the Node release, commit, official API inputs, and documentation URLs. The pinned Node API is the denominator.
 - Node's official documentation defines the public API hierarchy and stability metadata. Consult Node source when the docs do not fully specify behavior.
 - Running the pinned Node release is the behavior oracle for differential tests.
 - Compiler source and `packages/compiler/surface-manifest.json`, augmented by `internal/compatibility/static-support.json`, define static-native support.
@@ -157,8 +157,8 @@ pnpm node-compat:backlog --tier=static --format=tsv
 Never hand-edit these files:
 
 - `packages/compiler/surface-manifest.json`
-- `internal/compatibility/generated/node-v24-internal.json`
-- `docs/src/generated/node-v24-compatibility.json`
+- `internal/compatibility/generated/node-v26-internal.json`
+- `docs/src/generated/node-v26-compatibility.json`
 
 Change compiler decision sources or the implementation-owned compatibility manifests, then regenerate. Use `pnpm manifest` when compiler decision tables change and `pnpm node-compat` whenever the Node pin, compatibility manifests, compiler surface manifest, changes. `pnpm node-compat --local` reclassifies the committed ledger without fetching Node's docs; it writes the same files as `pnpm node-compat` while the Node pin is unchanged.
 

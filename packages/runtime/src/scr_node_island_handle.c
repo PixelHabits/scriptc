@@ -485,6 +485,21 @@ static ScrDyn *nh_from_node(const ScrNodeValue *v) {
   }
 }
 
+typedef struct {
+  uint32_t id;
+  ScrNodeErrorInfo *info;
+} NhErrorInfo;
+
+static void nh_error_info_job(void *p) {
+  NhErrorInfo *call = p;
+  nh_bridge()->error_info(call->id, call->info);
+}
+
+static void nh_error_info(uint32_t id, ScrNodeErrorInfo *info) {
+  NhErrorInfo call = {.id = id, .info = info};
+  scr_ni_on_node_stack(nh_error_info_job, &call);
+}
+
 /* The ScrError of an island Error handle (+1): the one already pinned to
  * it, else a new one of the nearest intrinsic class, pinned. */
 static ScrError *nh_error_of(const ScrNodeValue *v) {
@@ -495,7 +510,7 @@ static ScrError *nh_error_of(const ScrNodeValue *v) {
     return scr_error_retain(pinned);
   }
   ScrNodeErrorInfo info;
-  nh_bridge()->error_info(ref->id, &info);
+  nh_error_info(ref->id, &info);
   ScrStr *message = nh_str(info.message ? info.message : "", info.message_len);
   ScrError *e = scr_error_new((int)info.kind, message);
   scr_str_release(message);
@@ -1564,7 +1579,7 @@ bool scr_ni_report_uncaught(ScrError *error) {
   const ScrNodeBridge *bridge = scr_ni_bridge_loaded();
   if (ref == NULL || ref->id == 0 || bridge == NULL) return false;
   ScrNodeErrorInfo info;
-  bridge->error_info(ref->id, &info);
+  nh_error_info(ref->id, &info);
   if (info.stack == NULL) return false;
   if (info.arrow != NULL && info.arrow_len > 0) {
     fwrite(info.arrow, 1, info.arrow_len, stderr);
